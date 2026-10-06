@@ -11,28 +11,41 @@ import {
   ArrowDownToLine,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Button, PageContainer, Select } from '@/components/ui';
 
-export default function ExportExcelView() {
+interface ExportExcelViewProps {
+  initialClassroom?: string | null;
+}
+
+export default function ExportExcelView({ initialClassroom }: ExportExcelViewProps = {}) {
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [selectedClassroom, setSelectedClassroom] = useState<string>('ม.4/1');
+  const [selectedClassroom, setSelectedClassroom] = useState<string>(initialClassroom || 'ม.4/1');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [previewStudents, setPreviewStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialClassroom) {
+      setSelectedClassroom(initialClassroom);
+    }
+  }, [initialClassroom]);
 
   useEffect(() => {
     async function init() {
       const [cr, sb] = await Promise.all([api.getClassrooms(), api.getSubjects()]);
       if (cr.data?.length) {
         setClassrooms(cr.data);
-        setSelectedClassroom(cr.data[0].name);
+        if (!initialClassroom) {
+          setSelectedClassroom(cr.data[0].name);
+        }
       }
       if (sb.data?.length) {
         setSubjects(sb.data);
       }
     }
     init();
-  }, []);
+  }, [initialClassroom]);
 
   useEffect(() => {
     if (!selectedClassroom) return;
@@ -59,7 +72,7 @@ export default function ExportExcelView() {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <PageContainer>
       {/* Parameters - White 60% with Pink 30% borders & Sky Blue 10% Action */}
       <div className="bg-white p-6 rounded-2xl border border-pink-100 shadow-xs space-y-4">
         <div className="flex items-center gap-2.5">
@@ -75,25 +88,25 @@ export default function ExportExcelView() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">ห้องเรียนที่ต้องการส่งออก</label>
-            <select
+            <Select
               value={selectedClassroom}
               onChange={(e) => setSelectedClassroom(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-400"
+              className="w-full"
             >
               {classrooms.map((c) => (
                 <option key={c.id} value={c.name}>
                   ห้อง {c.name} ({c.students_count || 0} คน)
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">วิชา (เลือกหรือไม่เลือกก็ได้)</label>
-            <select
+            <Select
               value={selectedSubjectId}
               onChange={(e) => setSelectedSubjectId(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-400"
+              className="w-full"
             >
               <option value="">ทุกรายวิชา</option>
               {subjects.map((s) => (
@@ -101,17 +114,18 @@ export default function ExportExcelView() {
                   {s.code} {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex items-end">
-            <button
+            <Button
               onClick={handleDownload}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-xs font-bold shadow-xs shadow-sky-200 transition-colors h-[38px]"
+              variant="accent"
+              className="w-full h-[38px]"
             >
               <Download className="w-4 h-4" />
               <span>ดาวน์โหลด Excel (.xlsx)</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -166,6 +180,6 @@ export default function ExportExcelView() {
           </table>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

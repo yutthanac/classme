@@ -1,5 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 export const STORAGE_BASE = process.env.NEXT_PUBLIC_STORAGE_URL || 'http://127.0.0.1:8000';
+export { getAvatarUrl, uploadAvatarFile, AVATAR_PRESETS } from './avatar';
 
 export function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
@@ -18,6 +19,59 @@ export function removeAuthToken(): void {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('classme_token');
     localStorage.removeItem('classme_user');
+    localStorage.removeItem('classme_classroom');
+    localStorage.removeItem('classme_subject');
+  }
+}
+
+export function getStoredClassroom(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('classme_classroom');
+  }
+  return null;
+}
+
+export function setStoredClassroom(name: string | null): void {
+  if (typeof window !== 'undefined') {
+    if (name) {
+      localStorage.setItem('classme_classroom', name);
+    } else {
+      localStorage.removeItem('classme_classroom');
+    }
+  }
+}
+
+export function getStoredSubjectId(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('classme_subject');
+  }
+  return null;
+}
+
+export function setStoredSubjectId(id: string | null): void {
+  if (typeof window !== 'undefined') {
+    if (id) {
+      localStorage.setItem('classme_subject', id);
+    } else {
+      localStorage.removeItem('classme_subject');
+    }
+  }
+}
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+const memoryCache: Record<string, CacheEntry<any>> = {};
+const CACHE_TTL_MS = 60_000; // 60s cache for meta
+
+export function clearApiCache(prefix?: string) {
+  if (!prefix) {
+    for (const key in memoryCache) delete memoryCache[key];
+  } else {
+    for (const key in memoryCache) {
+      if (key.startsWith(prefix)) delete memoryCache[key];
+    }
   }
 }
 
@@ -139,20 +193,59 @@ export const api = {
   }),
 
   // Classrooms
-  getClassrooms: () => fetchApi<{ status: string; data: any[] }>('/classrooms'),
-  createClassroom: (data: any) => fetchApi<{ status: string; data: any }>('/classrooms', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }),
+  getClassrooms: async () => {
+    const key = 'classrooms';
+    const cached = memoryCache[key];
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+    const res = await fetchApi<{ status: string; data: any[] }>('/classrooms');
+    memoryCache[key] = { data: res, timestamp: Date.now() };
+    return res;
+  },
+  getClassroom: (id: number | string) => fetchApi<{ status: string; data: any }>(`/classrooms/${id}`),
+  createClassroom: async (data: any) => {
+    clearApiCache('classrooms');
+    return fetchApi<{ status: string; message?: string; data: any }>('/classrooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+  updateClassroom: async (id: number | string, data: any) => {
+    clearApiCache('classrooms');
+    return fetchApi<{ status: string; message?: string; data: any }>(`/classrooms/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+  deleteClassroom: async (id: number | string) => {
+    clearApiCache('classrooms');
+    return fetchApi<{ status: string; message?: string }>(`/classrooms/${id}`, {
+      method: 'DELETE',
+    });
+  },
 
   // Subjects
-  getSubjects: () => fetchApi<{ status: string; data: any[] }>('/subjects'),
-  createSubject: (data: any) => fetchApi<{ status: string; data: any }>('/subjects', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }),
+  getSubjects: async () => {
+    const key = 'subjects';
+    const cached = memoryCache[key];
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+    const res = await fetchApi<{ status: string; data: any[] }>('/subjects');
+    memoryCache[key] = { data: res, timestamp: Date.now() };
+    return res;
+  },
+  createSubject: async (data: any) => {
+    clearApiCache('subjects');
+    return fetchApi<{ status: string; data: any }>('/subjects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
 
   // Schedules
   getSchedules: (params?: { classroom?: string; subject_id?: string }) => {
@@ -163,6 +256,11 @@ export const api = {
   },
   createSchedule: (data: any) => fetchApi<{ status: string; data: any }>('/schedules', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }),
+  updateSchedule: (id: number | string, data: any) => fetchApi<{ status: string; data: any }>(`/schedules/${id}`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   }),
@@ -249,18 +347,61 @@ export const api = {
   // Users Management
   getUsers: () => fetchApi<{ status: string; data: any[] }>('/users'),
   getUser: (id: number | string) => fetchApi<{ status: string; data: any }>(`/users/${id}`),
-  createUser: (data: any) =>
-    fetchApi<{ status: string; message: string; data: any }>('/users', {
+  createUser: async (data: any) => {
+    if (typeof window !== 'undefined' && data instanceof FormData) {
+      const token = getAuthToken();
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/users`, {
+        method: 'POST',
+        headers,
+        body: data,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.message || `HTTP ${res.status}`);
+      return json;
+    }
+    return fetchApi<{ status: string; message: string; data: any }>('/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
-    }),
-  updateUser: (id: number | string, data: any) =>
-    fetchApi<{ status: string; message: string; data: any }>(`/users/${id}`, {
+    });
+  },
+  updateUser: async (id: number | string, data: any) => {
+    if (typeof window !== 'undefined' && data instanceof FormData) {
+      const token = getAuthToken();
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/users/${id}`, {
+        method: 'POST',
+        headers,
+        body: data,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.message || `HTTP ${res.status}`);
+      return json;
+    }
+    return fetchApi<{ status: string; message: string; data: any }>(`/users/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
-    }),
+    });
+  },
+  uploadUserAvatar: async (userId: number | string, file: File) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const token = getAuthToken();
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/users/${userId}/avatar`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.message || `อัปโหลดรูปไม่สำเร็จ (${res.status})`);
+    return json;
+  },
   deleteUser: (id: number | string) =>
     fetchApi<{ status: string; message: string }>(`/users/${id}`, {
       method: 'DELETE',

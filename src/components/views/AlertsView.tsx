@@ -12,6 +12,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Button, PageContainer } from '@/components/ui';
 
 export default function AlertsView() {
   const [alerts, setAlerts] = useState<any[]>([]);
@@ -58,7 +59,7 @@ export default function AlertsView() {
   const unreadCount = alerts.filter((a) => !a.is_read).length;
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <PageContainer>
       {/* Header bar - White 60% with Pink 30% badge & Sky Blue 10% action */}
       <div className="bg-white p-5 rounded-2xl border border-pink-100 shadow-xs flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -73,14 +74,14 @@ export default function AlertsView() {
           </div>
         </div>
 
-        <button
+        <Button
           onClick={handleScan}
           disabled={scanning}
-          className="flex items-center gap-2 px-3.5 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+          variant="soft"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-sky-600 ${scanning ? 'animate-spin' : ''}`} />
           <span>{scanning ? 'กำลังสแกน...' : 'สแกนตรวจสอบใหม่'}</span>
-        </button>
+        </Button>
       </div>
 
       {/* Alert list */}
@@ -157,12 +158,12 @@ export default function AlertsView() {
                     )}
 
                     {!al.is_read && (
-                      <button
+                      <Button
                         onClick={() => handleMarkRead(al.id)}
-                        className="px-3.5 py-2 bg-white border border-pink-200 text-pink-700 rounded-xl text-xs font-semibold hover:bg-pink-50 transition-colors"
+                        variant="outline"
                       >
                         รับทราบแล้ว
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -171,6 +172,6 @@ export default function AlertsView() {
           })
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

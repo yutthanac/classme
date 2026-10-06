@@ -1,0 +1,19 @@
+/* Style variables for Event Calendar (Nova / shadcn style) */
+:root {
+  --ec-event-color: #ec4899;
+  --ec-hour-height: 48px;
+  --ec-gutter-width: 4rem;
+  --ec-sticky-offset: 0px;
+  --ec-month-bar-h: 1.75rem;
+  --ec-month-row-min-h: 5.5rem;
+  --ec-more-max-height: 18rem;
+  --ec-slot-line-width: 1px;
+  --ec-slot-line-color: rgba(241, 245, 249, 0.9);
+  --ec-scrollbar-w: 6px;
+  --ec-day-col-min: 100px;
+  --ec-resource-col-min: 120px;
+  --ec-event-min-h: 20px;
+  --ec-event-gutter: 2px;
+  --ec-week-number-w: 2rem;
+  --ec-z: 10;
+}

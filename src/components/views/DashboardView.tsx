@@ -3,8 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   Users,
-  CheckCircle2,
-  Clock,
   AlertTriangle,
   ArrowUpRight,
   TrendingUp,
@@ -13,28 +11,79 @@ import {
   FileSpreadsheet,
   PhoneCall,
   Calendar,
+  Layers,
+  Plus,
+  GraduationCap,
+  ArrowRight,
+  X,
+  Trash2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { TabType } from '../Sidebar';
+import { Button, PageContainer } from '@/components/ui';
 
 interface DashboardViewProps {
   setActiveTab: (tab: TabType) => void;
+  onEnterClassroom?: (classroomName: string) => void;
 }
 
-export default function DashboardView({ setActiveTab }: DashboardViewProps) {
+export default function DashboardView({ setActiveTab, onEnterClassroom }: DashboardViewProps) {
   const [stats, setStats] = useState<any>(null);
+  const [classrooms, setClassrooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Modal State for Adding Classroom
+  const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
+  const [creatingClass, setCreatingClass] = useState(false);
+  const [classForm, setClassForm] = useState({
+    name: '',
+    level: 'มัธยมศึกษาปีที่ 4',
+    room: '',
+    academic_year: '2569',
+    semester: '1',
+    advisor_name: '',
+  });
+
   useEffect(() => {
-    loadStats();
+    let mounted = true;
+    async function init() {
+      try {
+        setLoading(true);
+        const [statsRes, crRes] = await Promise.all([
+          api.getAttendanceStats(),
+          api.getClassrooms(),
+        ]);
+        if (!mounted) return;
+        if (statsRes.status === 'success') {
+          setStats(statsRes.data);
+        }
+        if (crRes.data) {
+          setClassrooms(crRes.data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    init();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const loadStats = async () => {
+  const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const res = await api.getAttendanceStats();
-      if (res.status === 'success') {
-        setStats(res.data);
+      const [statsRes, crRes] = await Promise.all([
+        api.getAttendanceStats(),
+        api.getClassrooms(),
+      ]);
+      if (statsRes.status === 'success') {
+        setStats(statsRes.data);
+      }
+      if (crRes.data) {
+        setClassrooms(crRes.data);
       }
     } catch (err) {
       console.error(err);
@@ -43,12 +92,56 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
     }
   };
 
+  const handleCreateClassroom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!classForm.name.trim()) return;
+
+    try {
+      setCreatingClass(true);
+      const res = await api.createClassroom(classForm);
+      if (res.status === 'success' || res.data) {
+        setIsAddClassModalOpen(false);
+        setClassForm({
+          name: '',
+          level: 'มัธยมศึกษาปีที่ 4',
+          room: '',
+          academic_year: '2569',
+          semester: '1',
+          advisor_name: '',
+        });
+        await loadDashboardData();
+      }
+    } catch (err: any) {
+      alert('สร้างห้องเรียนไม่สำเร็จ: ' + (err.message || 'เกิดข้อผิดพลาด'));
+    } finally {
+      setCreatingClass(false);
+    }
+  };
+
+  const handleDeleteClassroom = async (id: number | string, name: string) => {
+    if (!confirm(`ต้องการลบห้องเรียน "${name}" หรือไม่? ข้อมูลตารางสอนและนักเรียนในห้องนี้จะได้รับผลกระทบ`)) return;
+    try {
+      await api.deleteClassroom(id);
+      await loadDashboardData();
+    } catch (err: any) {
+      alert('ลบห้องเรียนไม่สำเร็จ: ' + err.message);
+    }
+  };
+
+  const handleGoTeach = (classroomName: string) => {
+    if (onEnterClassroom) {
+      onEnterClassroom(classroomName);
+    } else {
+      setActiveTab('attendance');
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-3 text-pink-600 text-xs font-semibold">
           <div className="w-5 h-5 border-2 border-pink-600 border-t-transparent rounded-full animate-spin" />
-          <span>กำลังโหลดข้อมูลสถิติ...</span>
+          <span>กำลังโหลดข้อมูลห้องเรียนและสถิติ...</span>
         </div>
       </div>
     );
@@ -62,13 +155,125 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
   const absentPct = totalMarks > 0 ? Math.round((counts.absent / totalMarks) * 100) : 0;
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Quick Action Banner (Pink 30% & Sky Blue 10% on White 60%) */}
+    <PageContainer>
+      {/* SECTION 1: ห้องเรียนในความดูแล (Classroom Hub Section) */}
+      <div className="bg-white rounded-2xl border border-pink-100/90 p-6 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-pink-50 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center shadow-xs">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900">ห้องเรียนที่ดูแลทั้งหมด</h2>
+              <p className="text-xs text-slate-500">เลือกชั้นเรียนเพื่อเข้าสอน เช็คชื่อ หรือจัดการข้อมูลนักเรียน</p>
+            </div>
+          </div>
+
+          {/* Add Classroom Button (Dynamic Creation) */}
+          <Button
+            onClick={() => setIsAddClassModalOpen(true)}
+            variant="primary"
+            icon={<Plus className="w-4 h-4" />}
+          >
+            เพิ่มห้องเรียนใหม่
+          </Button>
+        </div>
+
+        {/* Classroom Cards Grid */}
+        {classrooms.length === 0 ? (
+          <div className="text-center py-12 border-2 border-dashed border-pink-100 rounded-2xl bg-pink-50/20 space-y-3">
+            <Layers className="w-10 h-10 text-pink-300 mx-auto" />
+            <p className="text-sm font-semibold text-slate-700">ยังไม่มีห้องเรียนในระบบ</p>
+            <p className="text-xs text-slate-400">กดปุ่ม &quot;เพิ่มห้องเรียนใหม่&quot; ด้านบนเพื่อเริ่มต้นสร้างชั้นเรียน</p>
+            <Button
+              onClick={() => setIsAddClassModalOpen(true)}
+              variant="outline"
+              size="sm"
+            >
+              สร้างห้องเรียนแรก
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {classrooms.map((c) => (
+              <div
+                key={c.id}
+                className="group relative bg-linear-to-b from-white to-slate-50/60 rounded-2xl border border-pink-100/80 hover:border-pink-300 hover:shadow-md hover:shadow-pink-100/60 transition-all duration-200 p-5 flex flex-col justify-between space-y-4 shadow-xs"
+              >
+                {/* Card Header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-black text-slate-900 tracking-tight group-hover:text-pink-600 transition-colors">
+                        ห้อง {c.name}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-100">
+                        {c.academic_year ? `ปี ${c.academic_year}` : 'ภาคเรียนปัจจุบัน'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {c.level || 'ระดับมัธยมศึกษา'}
+                    </p>
+                  </div>
+
+                  {/* Delete button (subtle) */}
+                  <Button
+                    onClick={() => handleDeleteClassroom(c.id, c.name)}
+                    variant="ghost"
+                    size="icon"
+                    className="opacity-0 group-hover:opacity-100 hover:text-rose-600 hover:bg-rose-50 transition-all text-slate-300"
+                    title="ลบห้องเรียนนี้"
+                    aria-label={`ลบห้องเรียน ${c.name}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+
+                {/* Card Meta Stats */}
+                <div className="grid grid-cols-2 gap-2 py-2 px-3 bg-white/80 rounded-xl border border-slate-100 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">จำนวนนักเรียน</span>
+                    <span className="font-bold text-slate-800 text-sm flex items-baseline gap-1">
+                      {c.students_count || 0}
+                      <span className="text-[10px] font-normal text-slate-500">คน</span>
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">ครูที่ปรึกษา</span>
+                    <span className="font-semibold text-slate-700 truncate block text-xs" title={c.advisor_name || '-'}>
+                      {c.advisor_name || 'ยังไม่ระบุ'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card Action Button: เข้าไปสอน / เช็คชื่อ */}
+                <div className="pt-2 border-t border-pink-50 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-400">
+                    {c.students_count > 0 ? 'พร้อมเช็คชื่อ' : 'รอนักเรียน'}
+                  </span>
+                  <Button
+                    onClick={() => handleGoTeach(c.name)}
+                    variant="primary"
+                    size="sm"
+                    className="gap-1.5 shadow-xs shadow-pink-200 group-hover:bg-pink-700"
+                    icon={<UserCheck className="w-3.5 h-3.5" />}
+                  >
+                    <span>เข้าห้องเรียน / ไปสอน</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 2: แถบเครื่องมือลัด (Quick Action Banner) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Attendance - Pink */}
         <button
           onClick={() => setActiveTab('attendance')}
-          className="flex items-center justify-between p-4 bg-white rounded-2xl border border-pink-100 hover:border-pink-300 hover:shadow-sm hover:shadow-pink-100 transition-all text-left group shadow-xs"
+          className="flex items-center justify-between p-4 bg-white rounded-2xl border border-pink-100 hover:border-pink-300 hover:shadow-sm hover:shadow-pink-100 transition-all text-left group shadow-xs cursor-pointer"
         >
           <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center group-hover:bg-pink-600 group-hover:text-white transition-colors shadow-xs">
@@ -85,7 +290,7 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
         {/* AI Scan - Pink */}
         <button
           onClick={() => setActiveTab('ai-scan')}
-          className="flex items-center justify-between p-4 bg-white rounded-2xl border border-pink-100 hover:border-pink-300 hover:shadow-sm hover:shadow-pink-100 transition-all text-left group shadow-xs"
+          className="flex items-center justify-between p-4 bg-white rounded-2xl border border-pink-100 hover:border-pink-300 hover:shadow-sm hover:shadow-pink-100 transition-all text-left group shadow-xs cursor-pointer"
         >
           <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center group-hover:bg-pink-600 group-hover:text-white transition-colors shadow-xs">
@@ -102,7 +307,7 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
         {/* Export - Sky Blue 10% */}
         <button
           onClick={() => setActiveTab('export')}
-          className="flex items-center justify-between p-4 bg-white rounded-2xl border border-sky-100 hover:border-sky-300 hover:shadow-sm hover:shadow-sky-100 transition-all text-left group shadow-xs"
+          className="flex items-center justify-between p-4 bg-white rounded-2xl border border-sky-100 hover:border-sky-300 hover:shadow-sm hover:shadow-sky-100 transition-all text-left group shadow-xs cursor-pointer"
         >
           <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center group-hover:bg-sky-600 group-hover:text-white transition-colors shadow-xs">
@@ -117,7 +322,7 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
         </button>
       </div>
 
-      {/* Main KPI Cards */}
+      {/* SECTION 3: Main KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Students */}
         <div className="bg-white p-5 rounded-2xl border border-pink-100/70 shadow-xs">
@@ -129,7 +334,7 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
             <span className="text-2xl font-bold text-slate-900">{stats?.total_students || 0}</span>
             <span className="text-xs text-slate-500">คน</span>
           </div>
-          <div className="mt-2 text-xs text-slate-400">ห้อง ม.4/1 และ ม.4/2</div>
+          <div className="mt-2 text-xs text-slate-400">จาก {classrooms.length} ห้องเรียน</div>
         </div>
 
         {/* Overall Attendance Rate */}
@@ -172,7 +377,7 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
         </div>
       </div>
 
-      {/* Attendance Breakdown Bar */}
+      {/* SECTION 4: Attendance Breakdown Bar */}
       <div className="bg-white p-6 rounded-2xl border border-pink-100/70 shadow-xs">
         <h3 className="text-sm font-bold text-slate-800 mb-4">สัดส่วนสถานะการเข้าเรียนรวม</h3>
         
@@ -217,7 +422,7 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
         </div>
       </div>
 
-      {/* Two Column Grid: At-Risk Students & Recent Sessions */}
+      {/* SECTION 5: Two Column Grid: At-Risk Students & Recent Sessions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* At-Risk Students */}
         <div className="bg-white rounded-2xl border border-pink-100/70 overflow-hidden shadow-xs">
@@ -228,7 +433,7 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
             </div>
             <button
               onClick={() => setActiveTab('students')}
-              className="text-xs text-pink-600 hover:text-pink-700 font-bold"
+              className="text-xs text-pink-600 hover:text-pink-700 font-bold cursor-pointer"
             >
               ดูข้อมูลนักเรียน
             </button>
@@ -278,7 +483,7 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
             </div>
             <button
               onClick={() => setActiveTab('history')}
-              className="text-xs text-pink-600 hover:text-pink-700 font-bold"
+              className="text-xs text-pink-600 hover:text-pink-700 font-bold cursor-pointer"
             >
               ดูประวัติทั้งหมด
             </button>
@@ -318,6 +523,107 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
           </div>
         </div>
       </div>
-    </div>
+
+      {/* MODAL: เพิ่มห้องเรียนใหม่ (Dynamic Add Classroom) */}
+      {isAddClassModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl border border-pink-100 shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-pink-50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">เพิ่มห้องเรียนใหม่</h3>
+                  <p className="text-xs text-slate-500">สร้างชั้นเรียนเพื่อเริ่มจัดการข้อมูลและเช็คชื่อ</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setIsAddClassModalOpen(false)}
+                variant="ghost"
+                size="icon"
+                title="ปิด"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <form onSubmit={handleCreateClassroom} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  ชื่อห้องเรียน <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="เช่น ม.4/3, ม.5/1 หรือ 4/1"
+                  value={classForm.name}
+                  onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all"
+                />
+                <span className="text-[11px] text-slate-400 mt-1 block">ชื่อห้องจะต้องไม่ซ้ำกับห้องเรียนที่มีอยู่แล้ว</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    ระดับชั้น
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="เช่น ม.4"
+                    value={classForm.level}
+                    onChange={(e) => setClassForm({ ...classForm, level: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    ปีการศึกษา
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="2569"
+                    value={classForm.academic_year}
+                    onChange={(e) => setClassForm({ ...classForm, academic_year: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  ครูที่ปรึกษา / ครูประจำชั้น
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น อ.กนกพร สิทธิชัย"
+                  value={classForm.advisor_name}
+                  onChange={(e) => setClassForm({ ...classForm, advisor_name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <Button
+                  type="button"
+                  onClick={() => setIsAddClassModalOpen(false)}
+                  variant="secondary"
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={creatingClass}
+                >
+                  สร้างห้องเรียน
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </PageContainer>
   );
 }

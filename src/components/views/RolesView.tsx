@@ -14,6 +14,7 @@ import {
   Users,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Button, PageContainer } from '@/components/ui';
 
 interface RolesViewProps {
   currentUser?: any;
@@ -151,7 +152,7 @@ export default function RolesView({ currentUser }: RolesViewProps) {
   const currentRole = roles.find((r) => r.id === selectedRoleId);
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <PageContainer>
       {/* Top Header & Tab Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-pink-100/80 shadow-xs">
         <div>
@@ -240,14 +241,15 @@ export default function RolesView({ currentUser }: RolesViewProps) {
               </div>
 
               {isAdmin && (
-                <button
+                <Button
                   onClick={handleSavePermissions}
                   disabled={savingPerms}
-                  className="px-4 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs shadow-pink-200 disabled:opacity-50 cursor-pointer"
+                  variant="primary"
+                  size="sm"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>{savingPerms ? 'กำลังบันทึก...' : 'บันทึกการกำหนดสิทธิ์'}</span>
-                </button>
+                </Button>
               )}
             </div>
 
@@ -323,14 +325,14 @@ export default function RolesView({ currentUser }: RolesViewProps) {
                   className="flex-1 px-3.5 py-2 bg-slate-50 border border-pink-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   required
                 />
-                <button
+                <Button
                   type="submit"
                   disabled={addingPrefix}
-                  className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs shadow-pink-200 disabled:opacity-50 cursor-pointer shrink-0"
+                  variant="primary"
                 >
                   <Plus className="w-4 h-4" />
                   <span>{addingPrefix ? 'กำลังเพิ่ม...' : 'เพิ่ม'}</span>
-                </button>
+                </Button>
               </form>
             </div>
           )}
@@ -357,13 +359,16 @@ export default function RolesView({ currentUser }: RolesViewProps) {
                     </span>
                   ) : (
                     isAdmin && (
-                      <button
+                      <Button
                         onClick={() => handleDeletePrefix(p.id, p.name)}
-                        className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                        variant="ghost"
+                        size="icon"
+                        className="hover:text-rose-600"
                         title="ลบคำนำหน้านี้"
+                        aria-label="ลบคำนำหน้านี้"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     )
                   )}
                 </div>
@@ -372,6 +377,6 @@ export default function RolesView({ currentUser }: RolesViewProps) {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

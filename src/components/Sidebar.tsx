@@ -15,7 +15,9 @@ import {
   User,
   Settings,
   UserCog,
+  ArrowLeftRight,
 } from 'lucide-react';
+import { getAvatarUrl } from '@/lib/avatar';
 
 export type TabType =
   | 'dashboard'
@@ -31,6 +33,8 @@ export type TabType =
 interface SidebarProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  selectedClassroom?: string | null;
+  onSwitchClassroom?: () => void;
   currentUser?: any;
   onLogout?: () => void;
 }
@@ -48,6 +52,8 @@ interface MenuGroup {
 export default function Sidebar({
   activeTab,
   setActiveTab,
+  selectedClassroom,
+  onSwitchClassroom,
   currentUser,
   onLogout,
 }: SidebarProps) {
@@ -57,7 +63,11 @@ export default function Sidebar({
     {
       groupLabel: 'เมนูหลัก',
       items: [
-        { id: 'dashboard', label: 'ภาพรวมระบบ', icon: LayoutDashboard },
+        {
+          id: 'dashboard',
+          label: selectedClassroom ? `ภาพรวมห้อง ${selectedClassroom}` : 'ภาพรวมระบบ',
+          icon: LayoutDashboard,
+        },
       ],
     },
     {
@@ -72,7 +82,7 @@ export default function Sidebar({
       groupLabel: 'นักเรียนและหลักสูตร',
       items: [
         { id: 'students', label: 'ข้อมูลนักเรียน', icon: Users },
-        { id: 'subjects', label: 'วิชาและตารางเรียน', icon: BookOpen },
+        { id: 'subjects', label: 'จัดการรายวิชาและตารางเรียน', icon: BookOpen },
         { id: 'export', label: 'ส่งออก Excel', icon: FileSpreadsheet },
       ],
     },
@@ -106,6 +116,39 @@ export default function Sidebar({
           <p className="text-xs text-pink-600/80 font-medium">ระบบบริหารจัดการชั้นเรียน</p>
         </div>
       </div>
+
+      {/* Active Classroom Context Box */}
+      {selectedClassroom && (
+        <div className="mx-3 mt-3 p-3 bg-linear-to-r from-pink-50/90 to-rose-50/70 border border-pink-200/80 rounded-2xl shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-pink-600 uppercase tracking-wider flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
+              ห้องเรียนที่กำลังดูแล
+            </span>
+            {onSwitchClassroom && (
+              <button
+                onClick={onSwitchClassroom}
+                className="text-[11px] font-bold text-pink-600 hover:text-pink-800 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                title="กลับไปเลือกห้องเรียนอื่น"
+              >
+                <span>สลับห้อง</span>
+                <ArrowLeftRight className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-pink-600 text-white flex items-center justify-center font-black text-xs shadow-xs">
+              {selectedClassroom.slice(0, 2)}
+            </div>
+            <div>
+              <div className="text-sm font-black text-slate-900 leading-tight">
+                ห้อง {selectedClassroom}
+              </div>
+              <div className="text-[10px] text-slate-500 font-medium">เปิดใช้งานอยู่</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Groups */}
       <div className="flex-1 py-3 px-3 space-y-4 bg-white overflow-y-auto">
@@ -158,8 +201,18 @@ export default function Sidebar({
         <div className="p-3 mx-3 mb-2 rounded-2xl bg-slate-50/80 border border-pink-100/70">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs shrink-0">
-                <User className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden shadow-2xs">
+                {getAvatarUrl(currentUser.avatar_url || currentUser.avatar) ? (
+                  <img
+                    src={getAvatarUrl(currentUser.avatar_url || currentUser.avatar)!}
+                    alt={currentUser.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : currentUser.name ? (
+                  currentUser.name.charAt(0).toUpperCase()
+                ) : (
+                  <User className="w-4 h-4" />
+                )}
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-bold text-slate-800 truncate">

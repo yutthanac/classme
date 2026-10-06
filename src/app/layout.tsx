@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   description: "ระบบเช็คชื่อนักเรียน วิเคราะห์สถิติ สแกนใบเช็คชื่อด้วย AI และแจ้งเตือนอัตโนมัติ",
 };
 
+import { AppProvider } from "@/context/AppContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,7 +24,7 @@ export default function RootLayout({
   return (
     <html lang="th" className={`${notoSansThai.variable} font-sans antialiased h-full`}>
       <body className="min-h-full bg-slate-50 text-slate-800 font-sans selection:bg-indigo-500 selection:text-white">
-        {children}
+        <AppProvider>{children}</AppProvider>
       </body>
     </html>
   );

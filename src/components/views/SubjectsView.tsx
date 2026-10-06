@@ -13,14 +13,46 @@ import {
   User,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Button, PageContainer, Select, LiquidWaveSpinner, CardSkeleton } from '@/components/ui';
 
-export default function SubjectsView() {
+const LEVEL_OPTIONS = [
+  { value: 'มัธยมศึกษาปีที่ 1', label: 'มัธยมศึกษาปีที่ 1 (ม.1)' },
+  { value: 'มัธยมศึกษาปีที่ 2', label: 'มัธยมศึกษาปีที่ 2 (ม.2)' },
+  { value: 'มัธยมศึกษาปีที่ 3', label: 'มัธยมศึกษาปีที่ 3 (ม.3)' },
+  { value: 'มัธยมศึกษาปีที่ 4', label: 'มัธยมศึกษาปีที่ 4 (ม.4)' },
+  { value: 'มัธยมศึกษาปีที่ 5', label: 'มัธยมศึกษาปีที่ 5 (ม.5)' },
+  { value: 'มัธยมศึกษาปีที่ 6', label: 'มัธยมศึกษาปีที่ 6 (ม.6)' },
+  { value: 'ประถมศึกษาปีที่ 1', label: 'ประถมศึกษาปีที่ 1 (ป.1)' },
+  { value: 'ประถมศึกษาปีที่ 2', label: 'ประถมศึกษาปีที่ 2 (ป.2)' },
+  { value: 'ประถมศึกษาปีที่ 3', label: 'ประถมศึกษาปีที่ 3 (ป.3)' },
+  { value: 'ประถมศึกษาปีที่ 4', label: 'ประถมศึกษาปีที่ 4 (ป.4)' },
+  { value: 'ประถมศึกษาปีที่ 5', label: 'ประถมศึกษาปีที่ 5 (ป.5)' },
+  { value: 'ประถมศึกษาปีที่ 6', label: 'ประถมศึกษาปีที่ 6 (ป.6)' },
+  { value: 'ปวช.1', label: 'ปวช.1' },
+  { value: 'ปวช.2', label: 'ปวช.2' },
+  { value: 'ปวช.3', label: 'ปวช.3' },
+  { value: 'ปวส.1', label: 'ปวส.1' },
+  { value: 'ปวส.2', label: 'ปวส.2' },
+];
+
+interface SubjectsViewProps {
+  initialClassroom?: string | null;
+  currentUser?: any;
+}
+
+export default function SubjectsView({ initialClassroom, currentUser }: SubjectsViewProps = {}) {
   const [tab, setTab] = useState<'subjects' | 'classrooms' | 'schedules'>('subjects');
 
   const [subjects, setSubjects] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isAdmin = currentUser?.role?.name === 'admin';
+  const currentTeacherFullName = currentUser?.name
+    ? `${currentUser?.prefix ? `${currentUser.prefix} ` : ''}${currentUser.name}`.trim()
+    : 'ครูผู้สอน';
 
   // Subject Modal
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
@@ -28,6 +60,7 @@ export default function SubjectsView() {
     code: '',
     name: '',
     teacher_name: '',
+    user_id: '' as string | number,
     credit: 1.5,
     color: '#db2777',
   });
@@ -36,28 +69,72 @@ export default function SubjectsView() {
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({
     subject_id: '',
-    classroom: 'ม.4/1',
+    classroom: initialClassroom || 'ม.4/1',
     day_of_week: 1,
     start_time: '08:30',
     end_time: '10:10',
     room_number: 'ห้อง 412',
   });
 
+  // Classroom Modal
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const [creatingClass, setCreatingClass] = useState(false);
+  const [classForm, setClassForm] = useState({
+    name: '',
+    level: 'มัธยมศึกษาปีที่ 4',
+    room: '1',
+    academic_year: '2569',
+    semester: '1',
+    advisor_name: isAdmin ? '' : currentTeacherFullName,
+  });
+
   useEffect(() => {
-    loadAll();
+    let mounted = true;
+    async function init() {
+      try {
+        setLoading(true);
+        const [sbRes, crRes, scRes, uRes] = await Promise.all([
+          api.getSubjects(),
+          api.getClassrooms(),
+          api.getSchedules(),
+          api.getUsers().catch(() => ({ data: [] })),
+        ]);
+        if (!mounted) return;
+        if (sbRes.data) setSubjects(sbRes.data);
+        if (crRes.data) setClassrooms(crRes.data);
+        if (scRes.data) setSchedules(scRes.data);
+        if (uRes.data) {
+          const teacherUsers = uRes.data.filter((u: any) => u.role?.name === 'teacher');
+          setTeachers(teacherUsers.length > 0 ? teacherUsers : uRes.data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    init();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const loadAll = async () => {
     try {
       setLoading(true);
-      const [sbRes, crRes, scRes] = await Promise.all([
+      const [sbRes, crRes, scRes, uRes] = await Promise.all([
         api.getSubjects(),
         api.getClassrooms(),
         api.getSchedules(),
+        api.getUsers().catch(() => ({ data: [] })),
       ]);
       if (sbRes.data) setSubjects(sbRes.data);
       if (crRes.data) setClassrooms(crRes.data);
       if (scRes.data) setSchedules(scRes.data);
+      if (uRes.data) {
+        const teacherUsers = uRes.data.filter((u: any) => u.role?.name === 'teacher');
+        setTeachers(teacherUsers.length > 0 ? teacherUsers : uRes.data);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -68,9 +145,27 @@ export default function SubjectsView() {
   const handleCreateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.createSubject(subjectForm);
+      const selectedTeacher = teachers.find((t) => String(t.id) === String(subjectForm.user_id));
+      const payload: any = {
+        code: subjectForm.code.trim(),
+        name: subjectForm.name.trim(),
+        credit: Number(subjectForm.credit),
+        color: subjectForm.color,
+      };
+
+      if (subjectForm.user_id) {
+        payload.user_id = Number(subjectForm.user_id);
+        payload.teacher_ids = [Number(subjectForm.user_id)];
+        payload.teacher_name = selectedTeacher
+          ? `${selectedTeacher.prefix ? `${selectedTeacher.prefix} ` : ''}${selectedTeacher.name}`.trim()
+          : subjectForm.teacher_name;
+      } else {
+        payload.teacher_name = subjectForm.teacher_name || currentTeacherFullName;
+      }
+
+      await api.createSubject(payload);
       setIsSubjectModalOpen(false);
-      setSubjectForm({ code: '', name: '', teacher_name: '', credit: 1.5, color: '#db2777' });
+      setSubjectForm({ code: '', name: '', teacher_name: '', user_id: '', credit: 1.5, color: '#db2777' });
       loadAll();
     } catch (err: any) {
       alert('เกิดข้อผิดพลาด: ' + err.message);
@@ -101,6 +196,51 @@ export default function SubjectsView() {
     }
   };
 
+  const handleCreateClassroom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!classForm.name.trim()) return;
+    try {
+      setCreatingClass(true);
+      const roomVal = classForm.room || (classForm.name.includes('/') ? classForm.name.split('/')[1] : '1');
+      const advisor = isAdmin
+        ? (classForm.advisor_name || currentTeacherFullName)
+        : currentTeacherFullName;
+
+      await api.createClassroom({
+        name: classForm.name.trim(),
+        level: classForm.level || 'มัธยมศึกษาปีที่ 4',
+        room: roomVal,
+        academic_year: classForm.academic_year || '2569',
+        semester: classForm.semester || '1',
+        advisor_name: advisor,
+      });
+      setIsClassModalOpen(false);
+      setClassForm({
+        name: '',
+        level: 'มัธยมศึกษาปีที่ 4',
+        room: '1',
+        academic_year: '2569',
+        semester: '1',
+        advisor_name: isAdmin ? '' : currentTeacherFullName,
+      });
+      loadAll();
+    } catch (err: any) {
+      alert('เพิ่มห้องเรียนไม่สำเร็จ: ' + err.message);
+    } finally {
+      setCreatingClass(false);
+    }
+  };
+
+  const handleDeleteClassroom = async (id: number | string, name: string) => {
+    if (!confirm(`ต้องการลบห้องเรียน "${name}" หรือไม่?`)) return;
+    try {
+      await api.deleteClassroom(id);
+      loadAll();
+    } catch (err: any) {
+      alert('ลบห้องเรียนไม่สำเร็จ: ' + err.message);
+    }
+  };
+
   const days = [
     { num: 1, name: 'วันจันทร์' },
     { num: 2, name: 'วันอังคาร' },
@@ -110,7 +250,7 @@ export default function SubjectsView() {
   ];
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <PageContainer>
       {/* Tab Switcher - White 60% with Pink 30% Active & Sky Blue 10% */}
       <div className="flex items-center justify-between border-b border-pink-100 pb-4">
         <div className="flex items-center gap-2">
@@ -152,34 +292,61 @@ export default function SubjectsView() {
         </div>
 
         {tab === 'subjects' && (
-          <button
+          <Button
             onClick={() => setIsSubjectModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-semibold shadow-xs shadow-pink-200"
+            variant="primary"
           >
             <Plus className="w-4 h-4" />
             <span>เพิ่มรายวิชา</span>
-          </button>
+          </Button>
+        )}
+
+        {tab === 'classrooms' && (
+          <Button
+            onClick={() => setIsClassModalOpen(true)}
+            variant="primary"
+          >
+            <Plus className="w-4 h-4" />
+            <span>เพิ่มห้องเรียน</span>
+          </Button>
         )}
 
         {tab === 'schedules' && (
-          <button
+          <Button
             onClick={() => {
               if (subjects.length > 0) {
                 setScheduleForm((prev) => ({ ...prev, subject_id: String(subjects[0].id) }));
               }
               setIsScheduleModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-semibold shadow-xs shadow-pink-200"
+            variant="primary"
           >
             <Plus className="w-4 h-4" />
             <span>เพิ่มตารางสอน</span>
-          </button>
+          </Button>
         )}
       </div>
 
-      {/* Tab 1: Subjects List */}
-      {tab === 'subjects' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Loading State */}
+      {loading ? (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl border border-pink-100 p-8 shadow-xs flex flex-col items-center justify-center">
+            <LiquidWaveSpinner
+              size="md"
+              words={[
+                'กำลังโหลดข้อมูลรายวิชาและตารางสอน...',
+                'กำลังประมวลผลชั้นเรียน...',
+                'กำลังจัดเตรียมข้อมูล...',
+              ]}
+            />
+          </div>
+          <CardSkeleton count={6} />
+        </div>
+      ) : (
+        <>
+          {/* Tab 1: Subjects List */}
+          {tab === 'subjects' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {subjects.map((sb) => (
             <div
               key={sb.id}
@@ -228,6 +395,18 @@ export default function SubjectsView() {
                 <div>ระดับชั้น: {cr.level || '-'}</div>
                 <div>ปีการศึกษา: {cr.academic_year} (ภาคเรียนที่ {cr.semester})</div>
                 <div>ครูที่ปรึกษา: <span className="font-semibold text-slate-700">{cr.advisor_name || '-'}</span></div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
+                <Button
+                  onClick={() => handleDeleteClassroom(cr.id, cr.name)}
+                  variant="ghost"
+                  size="icon"
+                  className="text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                  title="ลบห้องเรียน"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
               </div>
             </div>
           ))}
@@ -280,13 +459,16 @@ export default function SubjectsView() {
                           )}
                         </div>
 
-                        <button
+                        <Button
                           onClick={() => handleDeleteSchedule(sc.id)}
-                          className="text-slate-400 hover:text-rose-600 p-1 rounded-lg"
+                          variant="ghost"
+                          size="icon"
+                          className="hover:text-rose-600"
                           title="ลบคาบเรียน"
+                          aria-label="ลบคาบเรียน"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
                       </div>
                     ))
                   )}
@@ -294,7 +476,9 @@ export default function SubjectsView() {
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
+        </>
       )}
 
       {/* Add Subject Modal */}
@@ -303,12 +487,13 @@ export default function SubjectsView() {
           <div className="bg-white rounded-2xl shadow-xl border border-pink-100 w-full max-w-sm">
             <div className="p-4 border-b border-pink-50 flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-900">เพิ่มรายวิชาใหม่</h3>
-              <button
+              <Button
                 onClick={() => setIsSubjectModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                variant="ghost"
+                size="icon"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
             <form onSubmit={handleCreateSubject} className="p-4 space-y-3">
               <div>
@@ -334,15 +519,40 @@ export default function SubjectsView() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">ครูผู้สอน</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="เช่น อ.ประสิทธิ์ ศรีวิชัย"
-                  value={subjectForm.teacher_name}
-                  onChange={(e) => setSubjectForm({ ...subjectForm, teacher_name: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400"
-                />
+                <label className="block text-xs font-semibold text-slate-700 mb-1">อาจารย์ผู้สอน</label>
+                {teachers.length > 0 ? (
+                  <Select
+                    value={subjectForm.user_id}
+                    onChange={(e) => {
+                      const uId = e.target.value;
+                      const teacher = teachers.find((t) => String(t.id) === String(uId));
+                      setSubjectForm({
+                        ...subjectForm,
+                        user_id: uId,
+                        teacher_name: teacher
+                          ? `${teacher.prefix ? `${teacher.prefix} ` : ''}${teacher.name}`.trim()
+                          : '',
+                      });
+                    }}
+                    options={[
+                      { value: '', label: '-- เลือกอาจารย์ผู้สอน --' },
+                      ...teachers.map((t) => ({
+                        value: String(t.id),
+                        label: `${t.prefix ? `${t.prefix} ` : ''}${t.name} (${t.email})`,
+                      })),
+                    ]}
+                    className="w-full text-xs"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    placeholder="เช่น อ.ประสิทธิ์ ศรีวิชัย"
+                    value={subjectForm.teacher_name}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, teacher_name: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">หน่วยกิต</label>
@@ -356,19 +566,21 @@ export default function SubjectsView() {
                 />
               </div>
               <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
-                <button
+                <Button
                   type="button"
                   onClick={() => setIsSubjectModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 bg-slate-100 rounded-xl"
+                  variant="secondary"
+                  size="sm"
                 >
                   ยกเลิก
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="px-4 py-1.5 text-xs font-semibold bg-pink-600 text-white rounded-xl shadow-xs shadow-pink-200"
+                  variant="primary"
+                  size="sm"
                 >
                   บันทึก
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -381,57 +593,58 @@ export default function SubjectsView() {
           <div className="bg-white rounded-2xl shadow-xl border border-pink-100 w-full max-w-sm">
             <div className="p-4 border-b border-pink-50 flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-900">เพิ่มตารางสอน</h3>
-              <button
+              <Button
                 onClick={() => setIsScheduleModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                variant="ghost"
+                size="icon"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
             <form onSubmit={handleCreateSchedule} className="p-4 space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">วิชา</label>
-                <select
+                <Select
                   value={scheduleForm.subject_id}
                   onChange={(e) => setScheduleForm({ ...scheduleForm, subject_id: e.target.value })}
-                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400"
+                  className="w-full"
                 >
                   {subjects.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.code} {s.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">ห้องเรียน</label>
-                <select
+                <Select
                   value={scheduleForm.classroom}
                   onChange={(e) => setScheduleForm({ ...scheduleForm, classroom: e.target.value })}
-                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400"
+                  className="w-full"
                 >
                   {classrooms.map((c) => (
                     <option key={c.id} value={c.name}>
                       {c.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">วันในสัปดาห์</label>
-                <select
+                <Select
                   value={scheduleForm.day_of_week}
                   onChange={(e) => setScheduleForm({ ...scheduleForm, day_of_week: Number(e.target.value) })}
-                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400"
+                  className="w-full"
                 >
                   {days.map((d) => (
                     <option key={d.num} value={d.num}>
                       {d.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -469,24 +682,132 @@ export default function SubjectsView() {
               </div>
 
               <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
-                <button
+                <Button
                   type="button"
                   onClick={() => setIsScheduleModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 bg-slate-100 rounded-xl"
+                  variant="secondary"
+                  size="sm"
                 >
                   ยกเลิก
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="px-4 py-1.5 text-xs font-semibold bg-pink-600 text-white rounded-xl shadow-xs shadow-pink-200"
+                  variant="primary"
+                  size="sm"
                 >
                   บันทึก
-                </button>
+                </Button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+
+      {/* Add Classroom Modal */}
+      {isClassModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl border border-pink-100 w-full max-w-sm">
+            <div className="p-4 border-b border-pink-50 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-900">เพิ่มห้องเรียนใหม่</h3>
+              <Button
+                onClick={() => setIsClassModalOpen(false)}
+                variant="ghost"
+                size="icon"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <form onSubmit={handleCreateClassroom} className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  ชื่อห้องเรียน <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="เช่น ม.4/3 หรือ ม.5/1"
+                  value={classForm.name}
+                  onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 items-end">
+                <Select
+                  label="ระดับชั้น"
+                  size="sm"
+                  value={classForm.level}
+                  onChange={(e) => setClassForm({ ...classForm, level: e.target.value })}
+                  options={LEVEL_OPTIONS}
+                />
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">ปีการศึกษา</label>
+                  <input
+                    type="text"
+                    placeholder="2569"
+                    value={classForm.academic_year}
+                    onChange={(e) => setClassForm({ ...classForm, academic_year: e.target.value })}
+                    className="w-full h-8 px-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400 font-medium"
+                  />
+                </div>
+              </div>
+              {isAdmin ? (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    ครูที่ปรึกษา / ผู้รับผิดชอบห้องเรียน <span className="text-rose-500">*</span>
+                  </label>
+                  <Select
+                    size="sm"
+                    value={classForm.advisor_name}
+                    onChange={(e) => setClassForm({ ...classForm, advisor_name: e.target.value })}
+                    options={[
+                      { value: '', label: '-- กรุณาเลือกครูผู้รับผิดชอบ --' },
+                      ...teachers.map((t) => {
+                        const fullName = `${t.prefix ? `${t.prefix} ` : ''}${t.name}`.trim();
+                        const roleDisplay = t.role?.display_name || (t.role?.name === 'teacher' ? 'ครูผู้สอน' : t.role?.name || '');
+                        return {
+                          value: fullName,
+                          label: `${fullName}${roleDisplay ? ` (${roleDisplay})` : ''}`,
+                        };
+                      }),
+                    ]}
+                    required
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    ครูที่ปรึกษา / ผู้รับผิดชอบห้องเรียน
+                  </label>
+                  <div className="p-2.5 bg-pink-50/70 border border-pink-100 rounded-xl flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800">{currentTeacherFullName}</span>
+                    <span className="text-[10px] font-semibold text-pink-600 bg-white px-2 py-0.5 rounded-md border border-pink-200">
+                      ล็อกเป็นตัวเอง
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setIsClassModalOpen(false)}
+                  variant="secondary"
+                  size="sm"
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  loading={creatingClass}
+                >
+                  บันทึก
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </PageContainer>
   );
 }

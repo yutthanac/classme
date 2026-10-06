@@ -16,11 +16,16 @@ import {
   Eye,
 } from 'lucide-react';
 import { api, STORAGE_BASE } from '@/lib/api';
+import { Button, PageContainer, Select } from '@/components/ui';
 
-export default function AiScanView() {
+interface AiScanViewProps {
+  initialClassroom?: string | null;
+}
+
+export default function AiScanView({ initialClassroom }: AiScanViewProps = {}) {
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [selectedClassroom, setSelectedClassroom] = useState<string>('ม.4/1');
+  const [selectedClassroom, setSelectedClassroom] = useState<string>(initialClassroom || 'ม.4/1');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [period, setPeriod] = useState<string>('คาบ 1-2');
@@ -36,6 +41,13 @@ export default function AiScanView() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Sync if initialClassroom changes
+  useEffect(() => {
+    if (initialClassroom) {
+      setSelectedClassroom(initialClassroom);
+    }
+  }, [initialClassroom]);
+
   // Load classrooms & subjects
   useEffect(() => {
     async function init() {
@@ -43,7 +55,9 @@ export default function AiScanView() {
         const [cr, sb] = await Promise.all([api.getClassrooms(), api.getSubjects()]);
         if (cr.data?.length) {
           setClassrooms(cr.data);
-          setSelectedClassroom(cr.data[0].name);
+          if (!initialClassroom) {
+            setSelectedClassroom(cr.data[0].name);
+          }
         }
         if (sb.data?.length) {
           setSubjects(sb.data);
@@ -54,7 +68,7 @@ export default function AiScanView() {
       }
     }
     init();
-  }, []);
+  }, [initialClassroom]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -217,38 +231,38 @@ export default function AiScanView() {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <PageContainer>
       {/* Parameters Header - White 60% with Pink 30% borders */}
       <div className="bg-white p-6 rounded-2xl border border-pink-100 shadow-xs">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">ห้องเรียน</label>
-            <select
+            <Select
               value={selectedClassroom}
               onChange={(e) => setSelectedClassroom(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-pink-400"
+              className="w-full"
             >
               {classrooms.map((c) => (
                 <option key={c.id} value={c.name}>
                   {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">รายวิชา</label>
-            <select
+            <Select
               value={selectedSubjectId}
               onChange={(e) => setSelectedSubjectId(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-pink-400"
+              className="w-full"
             >
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.code} - {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
@@ -263,15 +277,15 @@ export default function AiScanView() {
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">คาบเรียน</label>
-            <select
+            <Select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-pink-400"
+              className="w-full"
             >
               <option value="คาบ 1-2">คาบ 1-2 (08:30 - 10:10)</option>
               <option value="คาบ 3-4">คาบ 3-4 (10:20 - 12:00)</option>
               <option value="คาบ 5-6">คาบ 5-6 (13:00 - 14:40)</option>
-            </select>
+            </Select>
           </div>
         </div>
       </div>
@@ -301,29 +315,30 @@ export default function AiScanView() {
           </div>
 
           <div className="flex items-center justify-center gap-3 pt-2">
-            <button
+            <Button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs shadow-pink-200"
+              variant="primary"
             >
               เลือกไฟล์จากเครื่อง
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={handleUseSampleSheet}
-              className="px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-xs font-semibold rounded-xl transition-colors"
+              variant="soft"
             >
               สร้างภาพใบเช็คชื่อตัวอย่าง
-            </button>
+            </Button>
           </div>
 
           {selectedFile && (
             <div className="pt-4 border-t border-slate-100">
-              <button
+              <Button
                 type="button"
                 onClick={handleUploadAndAnalyze}
                 disabled={uploading}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm shadow-pink-200 disabled:opacity-50"
+                variant="primary"
+                size="lg"
               >
                 {uploading ? (
                   <>
@@ -336,7 +351,7 @@ export default function AiScanView() {
                     <span>เริ่มให้อ่านเอกสารด้วย AI</span>
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -352,17 +367,18 @@ export default function AiScanView() {
                 <CheckCircle2 className="w-5 h-5 text-pink-600" />
                 <span className="font-semibold">บันทึกข้อมูลการเช็คชื่อจาก AI เข้าสู่ฐานข้อมูลเรียบร้อยแล้ว</span>
               </div>
-              <button
+              <Button
                 onClick={() => {
                   setAiResult(null);
                   setSelectedFile(null);
                   setPreviewUrl(null);
                   setConfirmed(false);
                 }}
-                className="px-3 py-1 bg-pink-600 text-white rounded-lg text-xs font-medium hover:bg-pink-700 shadow-xs shadow-pink-200"
+                variant="primary"
+                size="sm"
               >
                 สแกนใบใหม่
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="p-4 bg-pink-50/70 border border-pink-200 rounded-2xl flex flex-wrap items-center justify-between gap-4">
@@ -375,24 +391,26 @@ export default function AiScanView() {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   onClick={() => {
                     setAiResult(null);
                     setSelectedFile(null);
                     setPreviewUrl(null);
                   }}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-xl"
+                  variant="outline"
+                  size="sm"
                 >
                   ยกเลิก / อัปโหลดใหม่
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleConfirmAndSave}
                   disabled={saving}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-pink-600 hover:bg-pink-700 text-white text-xs font-semibold rounded-xl shadow-xs shadow-pink-200 disabled:opacity-50"
+                  variant="primary"
+                  size="sm"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>{saving ? 'กำลังบันทึก...' : 'ยืนยันและบันทึกข้อมูลเข้าระบบ'}</span>
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -538,6 +556,6 @@ export default function AiScanView() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -57,8 +57,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       setEmail('admin@classme.ac.th');
       setPassword('admin123');
     } else {
-      setEmail('teacher@classme.ac.th');
-      setPassword('teacher123');
+      setEmail('wandisuphasini@gmail.com');
+      setPassword('123456');
     }
   };
 
@@ -198,9 +198,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                 >
                   <div className="flex items-center gap-1.5 text-xs font-bold text-sky-700">
                     <UserCheck className="w-3.5 h-3.5 text-sky-600" />
-                    <span>ครูผู้สอน (Teacher)</span>
+                    <span>บัญชีทดสอบครูหัวเหม่ง</span>
                   </div>
-                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">teacher123</div>
+
                 </button>
               </div>
             </div>
@@ -208,9 +208,6 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
           {/* Footer note */}
           <div className="p-4 bg-slate-50/70 border-t border-pink-50 text-center">
-            <p className="text-[11px] text-slate-500">
-              ฐานข้อมูล: <span className="font-semibold text-sky-600">classme_db (MySQL)</span> • คมชัด สะอาดตา
-            </p>
           </div>
         </div>
       </div>

@@ -13,18 +13,29 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Button, PageContainer, Select } from '@/components/ui';
 
-export default function HistoryView() {
+interface HistoryViewProps {
+  initialClassroom?: string | null;
+}
+
+export default function HistoryView({ initialClassroom }: HistoryViewProps = {}) {
   const [sessions, setSessions] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [selectedClassroom, setSelectedClassroom] = useState<string>('all');
+  const [selectedClassroom, setSelectedClassroom] = useState<string>(initialClassroom || 'all');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
   // Detail Modal
   const [activeSession, setActiveSession] = useState<any | null>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialClassroom) {
+      setSelectedClassroom(initialClassroom);
+    }
+  }, [initialClassroom]);
 
   useEffect(() => {
     async function init() {
@@ -71,15 +82,14 @@ export default function HistoryView() {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <PageContainer>
       {/* Filters - White 60% with Pink 30% border */}
       <div className="bg-white p-5 rounded-2xl border border-pink-100/80 flex flex-wrap items-center gap-4 shadow-xs">
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">ห้องเรียน</label>
-          <select
+          <Select
             value={selectedClassroom}
             onChange={(e) => setSelectedClassroom(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-pink-400"
           >
             <option value="all">ทุกห้องเรียน</option>
             {classrooms.map((c) => (
@@ -87,15 +97,14 @@ export default function HistoryView() {
                 ห้อง {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">รายวิชา</label>
-          <select
+          <Select
             value={selectedSubjectId}
             onChange={(e) => setSelectedSubjectId(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-pink-400"
           >
             <option value="all">ทุกรายวิชา</option>
             {subjects.map((s) => (
@@ -103,7 +112,7 @@ export default function HistoryView() {
                 {s.code} {s.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -160,13 +169,16 @@ export default function HistoryView() {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <button
+                      <Button
                         onClick={() => handleOpenDetail(sess.id)}
-                        className="p-1.5 text-pink-600 hover:text-pink-800 rounded-lg hover:bg-pink-50 transition-colors"
+                        variant="ghost"
+                        size="icon"
+                        className="text-pink-600 hover:text-pink-800 hover:bg-pink-50"
                         title="ดูรายละเอียด"
+                        aria-label="ดูรายละเอียด"
                       >
                         <Eye className="w-4 h-4" />
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -189,12 +201,13 @@ export default function HistoryView() {
                   วันที่ {activeSession.date} • {activeSession.period}
                 </p>
               </div>
-              <button
+              <Button
                 onClick={() => setActiveSession(null)}
-                className="text-slate-400 hover:text-slate-600"
+                variant="ghost"
+                size="icon"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
 
             <div className="overflow-y-auto p-4 flex-1">
@@ -247,6 +260,6 @@ export default function HistoryView() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

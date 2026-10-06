@@ -1,86 +1,28 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Sidebar, { TabType } from '@/components/Sidebar';
-import Header from '@/components/Header';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import LoginView from '@/components/LoginView';
-import DashboardView from '@/components/views/DashboardView';
-import AttendanceCheckView from '@/components/views/AttendanceCheckView';
-import AiScanView from '@/components/views/AiScanView';
-import StudentsView from '@/components/views/StudentsView';
-import SubjectsView from '@/components/views/SubjectsView';
-import HistoryView from '@/components/views/HistoryView';
-import ExportExcelView from '@/components/views/ExportExcelView';
-import RolesView from '@/components/views/RolesView';
-import UsersView from '@/components/views/UsersView';
-import { api, getStoredUser, setStoredUser, removeAuthToken } from '@/lib/api';
+import ClassroomSelectView from '@/components/views/ClassroomSelectView';
+import { useApp } from '@/context/AppContext';
 
 export default function HomePage() {
-  const [currentUser, setCurrentUser] = useState<any | null>(null);
-  const [authChecking, setAuthChecking] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const [alertCount, setAlertCount] = useState<number>(0);
+  const router = useRouter();
+  const {
+    currentUser,
+    authChecking,
+    selectedClassroom,
+    setSelectedClassroom,
+    login,
+    logout,
+  } = useApp();
 
-  // Initialize auth
+  // If already logged in and a classroom is selected, go straight to dashboard
   useEffect(() => {
-    async function checkAuth() {
-      try {
-        const stored = getStoredUser();
-        if (stored) {
-          setCurrentUser(stored);
-        }
-        // Verify with backend
-        const res = await api.getMe();
-        if (res.data) {
-          setCurrentUser(res.data);
-          setStoredUser(res.data);
-        }
-      } catch {
-        // If not authenticated or token expired, clear user
-        setCurrentUser(null);
-        removeAuthToken();
-      } finally {
-        setAuthChecking(false);
-      }
+    if (!authChecking && currentUser && selectedClassroom) {
+      router.replace('/dashboard');
     }
-    checkAuth();
-  }, []);
-
-  // Poll alerts only if logged in
-  useEffect(() => {
-    if (!currentUser) return;
-
-    async function checkAlerts() {
-      try {
-        const res = await api.getAlerts();
-        if (res.data) {
-          const unread = res.data.filter((a: any) => !a.is_read).length;
-          setAlertCount(unread);
-        }
-      } catch (e) {
-        // ignore background poll error
-      }
-    }
-    checkAlerts();
-    const timer = setInterval(checkAlerts, 30000);
-    return () => clearInterval(timer);
-  }, [currentUser]);
-
-  const handleLoginSuccess = (user: any) => {
-    setCurrentUser(user);
-    setActiveTab('dashboard');
-  };
-
-  const handleLogout = async () => {
-    try {
-      await api.logout();
-    } catch {
-      // ignore
-    } finally {
-      setCurrentUser(null);
-      removeAuthToken();
-    }
-  };
+  }, [authChecking, currentUser, selectedClassroom, router]);
 
   if (authChecking) {
     return (
@@ -93,52 +35,18 @@ export default function HomePage() {
 
   // Not logged in -> Show Login View
   if (!currentUser) {
-    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+    return <LoginView onLoginSuccess={login} />;
   }
 
-  // Logged in -> Show App
+  // Logged in but no classroom selected -> Show Classroom Selection Portal (Full screen, no sidebar)
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white selection:bg-pink-500 selection:text-white">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50/40">
-        {/* Header */}
-        <Header
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          alertCount={alertCount}
-          setAlertCount={setAlertCount}
-          currentUser={currentUser}
-          setCurrentUser={setCurrentUser}
-          onLogout={handleLogout}
-        />
-
-        {/* View Content */}
-        <main className="flex-1 overflow-y-auto">
-          {activeTab === 'dashboard' && <DashboardView setActiveTab={setActiveTab} />}
-          {activeTab === 'attendance' && <AttendanceCheckView />}
-          {activeTab === 'ai-scan' && <AiScanView />}
-          {activeTab === 'students' && <StudentsView />}
-          {activeTab === 'subjects' && <SubjectsView />}
-          {activeTab === 'history' && <HistoryView />}
-          {activeTab === 'users' && (
-            <UsersView
-              currentUser={currentUser}
-              onUserUpdated={(updated) => {
-                setCurrentUser(updated);
-                setStoredUser(updated);
-              }}
-            />
-          )}
-        </main>
-      </div>
-    </div>
+    <ClassroomSelectView
+      currentUser={currentUser}
+      onSelectClassroom={(name: string) => {
+        setSelectedClassroom(name);
+        router.push('/dashboard');
+      }}
+      onLogout={logout}
+    />
   );
 }

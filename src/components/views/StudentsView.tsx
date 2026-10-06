@@ -16,11 +16,16 @@ import {
   FileText,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Button, PageContainer, Select, LiquidWaveSpinner, TableRowSkeleton } from '@/components/ui';
 
-export default function StudentsView() {
+interface StudentsViewProps {
+  initialClassroom?: string | null;
+}
+
+export default function StudentsView({ initialClassroom }: StudentsViewProps = {}) {
   const [students, setStudents] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
-  const [selectedClassroom, setSelectedClassroom] = useState<string>('all');
+  const [selectedClassroom, setSelectedClassroom] = useState<string>(initialClassroom || 'all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +44,7 @@ export default function StudentsView() {
     title: 'นาย',
     first_name: '',
     last_name: '',
-    classroom: 'ม.4/1',
+    classroom: initialClassroom || 'ม.4/1',
     gender: 'male',
     guardian_name: '',
     guardian_phone: '',
@@ -56,8 +61,14 @@ export default function StudentsView() {
   ]);
 
   useEffect(() => {
+    if (initialClassroom) {
+      setSelectedClassroom(initialClassroom);
+      setFormData((prev) => ({ ...prev, classroom: initialClassroom }));
+    }
+  }, [initialClassroom]);
+
+  useEffect(() => {
     loadClassrooms();
-    loadStudents();
     loadPrefixes();
   }, []);
 
@@ -183,7 +194,7 @@ export default function StudentsView() {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <PageContainer>
       {/* Search & Filter Header (White 60 - Pink 30 - Sky Blue 10) */}
       <div className="bg-white p-5 rounded-2xl border border-pink-100/80 flex flex-wrap items-center justify-between gap-4 shadow-xs">
         <div className="flex flex-wrap items-center gap-3 flex-1">
@@ -200,10 +211,9 @@ export default function StudentsView() {
           </div>
 
           {/* Classroom filter (Sky Blue tag style) */}
-          <select
+          <Select
             value={selectedClassroom}
             onChange={(e) => setSelectedClassroom(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
           >
             <option value="all">ทุกห้องเรียน ({students.length} คน)</option>
             {classrooms.map((c) => (
@@ -211,23 +221,32 @@ export default function StudentsView() {
                 ห้อง {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {/* Add Student Button - Pink 30% */}
-        <button
+        <Button
           onClick={() => handleOpenModal()}
-          className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-semibold shadow-xs shadow-pink-200 transition-colors"
+          variant="primary"
         >
           <Plus className="w-4 h-4" />
           <span>เพิ่มนักเรียนใหม่</span>
-        </button>
+        </Button>
       </div>
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-pink-100/70 overflow-hidden shadow-xs">
         {loading ? (
-          <div className="p-12 text-center text-xs text-slate-500">กำลังโหลดรายชื่อนักเรียน...</div>
+          <div className="p-10 flex flex-col items-center justify-center">
+            <LiquidWaveSpinner
+              size="sm"
+              words={[
+                'กำลังโหลดรายชื่อนักเรียน...',
+                'กำลังดึงข้อมูลชั้นเรียนและเลขที่...',
+                'กำลังประมวลผลข้อมูลการติดต่อ...',
+              ]}
+            />
+          </div>
         ) : students.length === 0 ? (
           <div className="p-12 text-center text-xs text-slate-400">ไม่พบรายชื่อนักเรียน</div>
         ) : (
@@ -278,27 +297,36 @@ export default function StudentsView() {
                     </td>
                     <td className="py-3 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
+                        <Button
                           onClick={() => handleViewProfile(st.id)}
-                          className="p-1 text-slate-400 hover:text-sky-600 rounded transition-colors"
+                          variant="ghost"
+                          size="icon"
+                          className="hover:text-sky-600"
                           title="ดูประวัติการเข้าเรียน"
+                          aria-label="ดูประวัติการเข้าเรียน"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() => handleOpenModal(st)}
-                          className="p-1 text-slate-400 hover:text-pink-600 rounded transition-colors"
+                          variant="ghost"
+                          size="icon"
+                          className="hover:text-pink-600"
                           title="แก้ไขข้อมูล"
+                          aria-label="แก้ไขข้อมูล"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() => handleDelete(st.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                          variant="ghost"
+                          size="icon"
+                          className="hover:text-rose-600"
                           title="ลบ"
+                          aria-label="ลบ"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -317,12 +345,13 @@ export default function StudentsView() {
               <h3 className="text-sm font-bold text-slate-900">
                 {editingStudent ? 'แก้ไขข้อมูลนักเรียน' : 'เพิ่มนักเรียนใหม่'}
               </h3>
-              <button
+              <Button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                variant="ghost"
+                size="icon"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
 
             <form onSubmit={handleSaveStudent} className="p-5 space-y-4">
@@ -356,10 +385,10 @@ export default function StudentsView() {
                   คำนำหน้านักเรียน (Prefix)
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <select
+                  <Select
                     value={prefixMode}
                     onChange={(e) => setPrefixMode(e.target.value)}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400"
+                    className="w-full"
                   >
                     {availablePrefixes.map((p) => (
                       <option key={p} value={p}>
@@ -367,7 +396,7 @@ export default function StudentsView() {
                       </option>
                     ))}
                     <option value="other">ระบุเอง...</option>
-                  </select>
+                  </Select>
 
                   {prefixMode === 'other' ? (
                     <input
@@ -412,28 +441,28 @@ export default function StudentsView() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">ห้องเรียน</label>
-                  <select
+                  <Select
                     value={formData.classroom}
                     onChange={(e) => setFormData({ ...formData, classroom: e.target.value })}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400"
+                    className="w-full"
                   >
                     {classrooms.map((c) => (
                       <option key={c.id} value={c.name}>
                         {c.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">เพศ</label>
-                  <select
+                  <Select
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-400"
+                    className="w-full"
                   >
                     <option value="male">ชาย</option>
                     <option value="female">หญิง</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
 
@@ -459,19 +488,21 @@ export default function StudentsView() {
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
+                <Button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 bg-slate-100 rounded-xl"
+                  variant="secondary"
+                  size="sm"
                 >
                   ยกเลิก
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="px-4 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-semibold shadow-xs shadow-pink-200"
+                  variant="primary"
+                  size="sm"
                 >
                   บันทึกข้อมูล
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -492,12 +523,13 @@ export default function StudentsView() {
                   ชั้น {viewingStudent.student?.classroom} เลขที่ {viewingStudent.student?.student_number} (รหัส {viewingStudent.student?.student_code})
                 </p>
               </div>
-              <button
+              <Button
                 onClick={() => setViewingStudent(null)}
-                className="text-slate-400 hover:text-slate-600"
+                variant="ghost"
+                size="icon"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
 
             <div className="p-5 space-y-5">
@@ -577,6 +609,6 @@ export default function StudentsView() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

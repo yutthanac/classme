@@ -13,14 +13,18 @@ import {
   CheckCircle2,
   Settings,
   UserCog,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { TabType } from './Sidebar';
 import AlertsPopup from './AlertsPopup';
 import { api, setStoredUser } from '@/lib/api';
+import { getAvatarUrl } from '@/lib/avatar';
 
 interface HeaderProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  selectedClassroom?: string | null;
+  onSwitchClassroom?: () => void;
   alertCount: number;
   setAlertCount?: (count: number) => void;
   currentUser?: any;
@@ -43,6 +47,8 @@ const titles: Record<TabType, { title: string; subtitle: string }> = {
 export default function Header({
   activeTab,
   setActiveTab,
+  selectedClassroom,
+  onSwitchClassroom,
   alertCount,
   setAlertCount,
   currentUser,
@@ -60,7 +66,10 @@ export default function Header({
   const [profileSuccess, setProfileSuccess] = useState(false);
 
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const current = titles[activeTab] || { title: 'ClassMe', subtitle: '' };
+  const baseTitle = titles[activeTab] || { title: 'ClassMe', subtitle: '' };
+  const current = selectedClassroom && activeTab === 'dashboard'
+    ? { title: `ห้องเรียน ${selectedClassroom}`, subtitle: 'จัดการการสอน เช็คชื่อ และนักเรียนประจำชั้น' }
+    : baseTitle;
   const isAdmin = currentUser?.role?.name === 'admin';
 
   // Sync edit form when currentUser changes
@@ -133,6 +142,18 @@ export default function Header({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Switch Classroom Button */}
+          {selectedClassroom && onSwitchClassroom && (
+            <button
+              onClick={onSwitchClassroom}
+              className="flex items-center gap-1.5 px-3 py-1 bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200/80 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              title="กลับไปยังหน้ารวมห้องเรียนทั้งหมด"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5 text-pink-600" />
+              <span className="hidden md:inline">สลับห้องเรียน</span>
+            </button>
+          )}
+
           {/* Semester Badge */}
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-sky-50 text-sky-700 border border-sky-200/80 rounded-lg text-xs font-semibold">
             <Calendar className="w-3.5 h-3.5 text-sky-600" />
@@ -176,8 +197,18 @@ export default function Header({
               }`}
               title="คลิกเพื่อเปิดเมนูโปรไฟล์"
             >
-              <div className="w-8 h-8 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs shadow-xs">
-                {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+              <div className="w-8 h-8 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs shadow-xs overflow-hidden shrink-0">
+                {getAvatarUrl(currentUser?.avatar_url || currentUser?.avatar) ? (
+                  <img
+                    src={getAvatarUrl(currentUser?.avatar_url || currentUser?.avatar)!}
+                    alt={displayName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : currentUser?.name ? (
+                  currentUser.name.charAt(0).toUpperCase()
+                ) : (
+                  <User className="w-4 h-4" />
+                )}
               </div>
               <div className="hidden md:block text-left">
                 <div className="text-xs font-bold text-slate-800 leading-tight">
@@ -194,17 +225,32 @@ export default function Header({
             {isProfileMenuOpen && (
               <div className="absolute right-0 top-12 w-64 bg-white rounded-2xl border border-pink-100 shadow-2xl shadow-pink-100/50 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                 {/* Header preview */}
-                <div className="p-4 border-b border-pink-50 bg-slate-50/50">
-                  <div className="text-xs font-bold text-slate-900 truncate">{displayName}</div>
-                  <div className="text-[11px] text-slate-400 truncate mt-0.5">{currentUser?.email}</div>
-                  <div className="mt-2">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        isAdmin ? 'bg-pink-100 text-pink-700' : 'bg-sky-100 text-sky-700'
-                      }`}
-                    >
-                      {currentUser?.role?.display_name || 'ผู้ใช้งาน'}
-                    </span>
+                <div className="p-4 border-b border-pink-50 bg-slate-50/50 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-xs overflow-hidden shrink-0">
+                    {getAvatarUrl(currentUser?.avatar_url || currentUser?.avatar) ? (
+                      <img
+                        src={getAvatarUrl(currentUser?.avatar_url || currentUser?.avatar)!}
+                        alt={displayName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : currentUser?.name ? (
+                      currentUser.name.charAt(0).toUpperCase()
+                    ) : (
+                      <User className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-slate-900 truncate">{displayName}</div>
+                    <div className="text-[11px] text-slate-400 truncate mt-0.5">{currentUser?.email}</div>
+                    <div className="mt-1.5">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          isAdmin ? 'bg-pink-100 text-pink-700' : 'bg-sky-100 text-sky-700'
+                        }`}
+                      >
+                        {currentUser?.role?.display_name || 'ผู้ใช้งาน'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
