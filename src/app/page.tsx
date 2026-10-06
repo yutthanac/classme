@@ -11,8 +11,8 @@ import StudentsView from '@/components/views/StudentsView';
 import SubjectsView from '@/components/views/SubjectsView';
 import HistoryView from '@/components/views/HistoryView';
 import ExportExcelView from '@/components/views/ExportExcelView';
-import AlertsView from '@/components/views/AlertsView';
 import RolesView from '@/components/views/RolesView';
+import UsersView from '@/components/views/UsersView';
 import { api, getStoredUser, setStoredUser, removeAuthToken } from '@/lib/api';
 
 export default function HomePage() {
@@ -103,7 +103,6 @@ export default function HomePage() {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        alertCount={alertCount}
         currentUser={currentUser}
         onLogout={handleLogout}
       />
@@ -115,7 +114,9 @@ export default function HomePage() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           alertCount={alertCount}
+          setAlertCount={setAlertCount}
           currentUser={currentUser}
+          setCurrentUser={setCurrentUser}
           onLogout={handleLogout}
         />
 
@@ -127,9 +128,15 @@ export default function HomePage() {
           {activeTab === 'students' && <StudentsView />}
           {activeTab === 'subjects' && <SubjectsView />}
           {activeTab === 'history' && <HistoryView />}
-          {activeTab === 'export' && <ExportExcelView />}
-          {activeTab === 'alerts' && <AlertsView />}
-          {activeTab === 'roles' && <RolesView currentUser={currentUser} />}
+          {activeTab === 'users' && (
+            <UsersView
+              currentUser={currentUser}
+              onUserUpdated={(updated) => {
+                setCurrentUser(updated);
+                setStoredUser(updated);
+              }}
+            />
+          )}
         </main>
       </div>
     </div>

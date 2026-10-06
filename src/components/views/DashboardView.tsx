@@ -227,10 +227,10 @@ export default function DashboardView({ setActiveTab }: DashboardViewProps) {
               <p className="text-xs text-slate-500">มีสถิติขาดเรียนหรือมาสายสะสม</p>
             </div>
             <button
-              onClick={() => setActiveTab('alerts')}
+              onClick={() => setActiveTab('students')}
               className="text-xs text-pink-600 hover:text-pink-700 font-bold"
             >
-              ดูทั้งหมด
+              ดูข้อมูลนักเรียน
             </button>
           </div>
 

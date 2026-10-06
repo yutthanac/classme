@@ -245,4 +245,24 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }),
+
+  // Users Management
+  getUsers: () => fetchApi<{ status: string; data: any[] }>('/users'),
+  getUser: (id: number | string) => fetchApi<{ status: string; data: any }>(`/users/${id}`),
+  createUser: (data: any) =>
+    fetchApi<{ status: string; message: string; data: any }>('/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  updateUser: (id: number | string, data: any) =>
+    fetchApi<{ status: string; message: string; data: any }>(`/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  deleteUser: (id: number | string) =>
+    fetchApi<{ status: string; message: string }>(`/users/${id}`, {
+      method: 'DELETE',
+    }),
 };

@@ -9,12 +9,12 @@ import {
   BookOpen,
   History,
   FileSpreadsheet,
-  Bell,
   GraduationCap,
   ShieldCheck,
   LogOut,
   User,
-  Lock,
+  Settings,
+  UserCog,
 } from 'lucide-react';
 
 export type TabType =
@@ -25,40 +25,72 @@ export type TabType =
   | 'subjects'
   | 'history'
   | 'export'
-  | 'alerts'
+  | 'users'
   | 'roles';
 
 interface SidebarProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
-  alertCount: number;
   currentUser?: any;
   onLogout?: () => void;
+}
+
+interface MenuGroup {
+  groupLabel: string;
+  items: {
+    id: TabType;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: string;
+  }[];
 }
 
 export default function Sidebar({
   activeTab,
   setActiveTab,
-  alertCount,
   currentUser,
   onLogout,
 }: SidebarProps) {
   const isAdmin = currentUser?.role?.name === 'admin';
 
-  const menuItems = [
-    { id: 'dashboard', label: 'ภาพรวมระบบ', icon: LayoutDashboard },
-    { id: 'attendance', label: 'เช็คชื่อในชั้นเรียน', icon: UserCheck },
-    { id: 'ai-scan', label: 'สแกนใบเช็คชื่อ AI', icon: ScanLine },
-    { id: 'students', label: 'ข้อมูลนักเรียน', icon: Users },
-    { id: 'subjects', label: 'วิชาและตารางเรียน', icon: BookOpen },
-    { id: 'history', label: 'ประวัติการเข้าเรียน', icon: History },
-    { id: 'export', label: 'ส่งออก Excel', icon: FileSpreadsheet },
-    { id: 'alerts', label: 'แจ้งเตือนขาด/สาย', icon: Bell, badge: alertCount },
+  const menuGroups: MenuGroup[] = [
     {
-      id: 'roles',
-      label: isAdmin ? 'บทบาท สิทธิ์ & คำนำหน้า' : 'บทบาทและสิทธิ์',
-      icon: ShieldCheck,
-      adminOnly: false,
+      groupLabel: 'เมนูหลัก',
+      items: [
+        { id: 'dashboard', label: 'ภาพรวมระบบ', icon: LayoutDashboard },
+      ],
+    },
+    {
+      groupLabel: 'บันทึกการเข้าเรียน',
+      items: [
+        { id: 'attendance', label: 'เช็คชื่อในชั้นเรียน', icon: UserCheck },
+        { id: 'ai-scan', label: 'สแกนใบเช็คชื่อ AI', icon: ScanLine },
+        { id: 'history', label: 'ประวัติการเข้าเรียน', icon: History },
+      ],
+    },
+    {
+      groupLabel: 'นักเรียนและหลักสูตร',
+      items: [
+        { id: 'students', label: 'ข้อมูลนักเรียน', icon: Users },
+        { id: 'subjects', label: 'วิชาและตารางเรียน', icon: BookOpen },
+        { id: 'export', label: 'ส่งออก Excel', icon: FileSpreadsheet },
+      ],
+    },
+    {
+      groupLabel: 'จัดการผู้ใช้งานและระบบ',
+      items: [
+        {
+          id: 'users',
+          label: 'จัดการผู้ใช้งาน',
+          icon: UserCog,
+        },
+        {
+          id: 'roles',
+          label: isAdmin ? 'จัดการ สิทธิ์ & คำนำหน้า' : 'บทบาทและสิทธิ์ผู้ใช้',
+          icon: ShieldCheck,
+          badge: !isAdmin ? 'ดูสิทธิ์' : undefined,
+        },
+      ],
     },
   ];
 
@@ -75,44 +107,50 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex-1 py-4 px-3 space-y-1 bg-white overflow-y-auto">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as TabType)}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-pink-50/90 text-pink-700 font-semibold border-l-4 border-pink-500 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-pink-50/40'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Icon
-                  className={`w-4 h-4 ${
-                    isActive ? 'text-pink-600' : 'text-slate-400 group-hover:text-pink-500'
-                  }`}
-                />
-                <span>{item.label}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {item.id === 'roles' && !isAdmin && (
-                  <span className="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-100">
-                    ดูสิทธิ์
-                  </span>
-                )}
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-pink-500 text-white shadow-xs">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
+      {/* Navigation Groups */}
+      <div className="flex-1 py-3 px-3 space-y-4 bg-white overflow-y-auto">
+        {menuGroups.map((group, groupIdx) => (
+          <div key={groupIdx} className="space-y-1">
+            {/* Section Header */}
+            <div className="px-3.5 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>{group.groupLabel}</span>
+            </div>
+
+            {/* Menu Items in Group */}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-pink-50/90 text-pink-700 font-semibold border-l-4 border-pink-500 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-pink-50/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon
+                        className={`w-4 h-4 ${
+                          isActive ? 'text-pink-600' : 'text-slate-400 group-hover:text-pink-500'
+                        }`}
+                      />
+                      <span>{item.label}</span>
+                    </div>
+
+                    {item.badge && (
+                      <span className="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-100">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* User Session Mini Card */}

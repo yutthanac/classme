@@ -182,27 +182,25 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                 <button
                   type="button"
                   onClick={() => fillQuickAccount('admin')}
-                  className="p-2.5 rounded-xl border border-pink-200 bg-pink-50/60 hover:bg-pink-100/70 text-pink-800 text-left transition-all group cursor-pointer"
+                  className="p-2.5 rounded-xl border border-pink-200 bg-pink-50/60 hover:bg-pink-100/75 text-pink-800 text-left transition-all cursor-pointer"
                 >
                   <div className="flex items-center gap-1.5 text-xs font-bold text-pink-700">
                     <ShieldCheck className="w-3.5 h-3.5 text-pink-600" />
-                    <span>ผู้ดูแลระบบ</span>
+                    <span>Admin (ผู้ดูแลระบบ)</span>
                   </div>
-                  <div className="text-[10px] text-pink-600/80 mt-0.5">Admin (สิทธิ์เต็ม)</div>
-                  <div className="text-[9px] text-slate-400 font-mono mt-0.5">admin123</div>
+                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">admin123</div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => fillQuickAccount('teacher')}
-                  className="p-2.5 rounded-xl border border-sky-200 bg-sky-50/60 hover:bg-sky-100/70 text-sky-800 text-left transition-all group cursor-pointer"
+                  className="p-2.5 rounded-xl border border-sky-200 bg-sky-50/60 hover:bg-sky-100/75 text-sky-800 text-left transition-all cursor-pointer"
                 >
                   <div className="flex items-center gap-1.5 text-xs font-bold text-sky-700">
                     <UserCheck className="w-3.5 h-3.5 text-sky-600" />
-                    <span>ครูผู้สอน</span>
+                    <span>ครูผู้สอน (Teacher)</span>
                   </div>
-                  <div className="text-[10px] text-sky-600/80 mt-0.5">Teacher (เช็คชื่อ/AI)</div>
-                  <div className="text-[9px] text-slate-400 font-mono mt-0.5">teacher123</div>
+                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">teacher123</div>
                 </button>
               </div>
             </div>
