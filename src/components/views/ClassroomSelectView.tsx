@@ -12,7 +12,6 @@ import {
   Calendar,
   LogOut,
   User,
-  Sparkles,
   BookOpen,
   X,
   ShieldCheck,
@@ -778,7 +777,7 @@ export default function ClassroomSelectView({
             {/* Left: Heading & Welcome Message */}
             <div className="space-y-2 text-center xl:text-left max-w-xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-semibold text-white shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                <GraduationCap className="w-3.5 h-3.5 text-white/90" />
                 <span>ยินดีต้อนรับสู่ระบบจัดการชั้นเรียน ClassMe</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                 <span className="text-[11px] text-emerald-100 font-bold">

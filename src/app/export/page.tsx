@@ -1,16 +1,14 @@
 'use client';
 
-import React from 'react';
-import AppShell from '@/components/layout/AppShell';
-import ExportExcelView from '@/components/views/ExportExcelView';
-import { useApp } from '@/context/AppContext';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function ExportPage() {
-  const { selectedClassroom } = useApp();
+  const router = useRouter();
 
-  return (
-    <AppShell activeTab="export">
-      <ExportExcelView initialClassroom={selectedClassroom} />
-    </AppShell>
-  );
+  useEffect(() => {
+    router.replace('/students');
+  }, [router]);
+
+  return null;
 }

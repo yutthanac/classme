@@ -19,10 +19,10 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-xs gap-1.5 rounded-lg',
-  md: 'h-9 px-4 text-xs gap-2 rounded-xl',
-  lg: 'h-11 px-5 text-sm gap-2 rounded-xl',
-  icon: 'h-8 w-8 rounded-lg',
+  sm: 'h-8.5 px-3.5 text-xs sm:text-sm gap-1.5 rounded-xl',
+  md: 'h-10 px-4 text-sm gap-2 rounded-xl font-medium',
+  lg: 'h-12 px-5 text-base gap-2.5 rounded-2xl font-semibold',
+  icon: 'h-9 w-9 rounded-xl',
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

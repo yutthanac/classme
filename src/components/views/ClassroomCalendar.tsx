@@ -30,7 +30,6 @@ import {
   Users,
   ExternalLink,
   ChevronRight,
-  Sparkles,
   Layers,
   Timer,
 } from 'lucide-react';
@@ -52,7 +51,7 @@ interface ClassroomCalendarProps {
   schedules?: any[];
   attendanceSessions?: any[];
   studentsCount?: number;
-  onGoToAttendance?: (subjectId?: string | number, date?: string) => void;
+  onGoToAttendance?: (subjectId?: string | number, date?: string, period?: string) => void;
   onGoToStudents?: () => void;
 }
 
@@ -73,16 +72,20 @@ export default function ClassroomCalendar({
   // Trigger attendance check for a clicked schedule/event
   const handleDirectAttendanceCheck = (ev: any) => {
     setSelectedEvent(ev);
-    const subjId = ev?.data?.subject?.id;
-    const dateStr = format(ev?.start || new Date(), 'yyyy-MM-dd');
+    const subjId = ev?.data?.subject?.id || ev?.data?.session?.subject?.id || ev?.data?.session?.subject_id;
+    const dateStr = ev?.start ? format(ev.start, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+    const periodStr = ev?.data?.startTime && ev?.data?.endTime
+      ? `คาบ (${ev.data.startTime} - ${ev.data.endTime})`
+      : undefined;
     if (onGoToAttendance) {
-      onGoToAttendance(subjId, dateStr);
+      onGoToAttendance(subjId, dateStr, periodStr);
     }
   };
 
   // Custom Week View: Hours on top, Days on left
   const CustomWeekView = () => (
     <HorizontalWeekMatrix
+      classroomName={classroomName}
       onEventClick={handleDirectAttendanceCheck}
       dayStartHour={8}
       dayEndHour={17}
@@ -92,6 +95,7 @@ export default function ClassroomCalendar({
   // Custom Day View: Horizontal 08:00 - 17:00 timeline
   const CustomDayView = () => (
     <HorizontalDayTimeline
+      classroomName={classroomName}
       onEventClick={handleDirectAttendanceCheck}
       dayStartHour={8}
       dayEndHour={17}
@@ -118,17 +122,19 @@ export default function ClassroomCalendar({
 
         const startStr = sc.start_time || '08:30';
         const endStr = sc.end_time || '10:10';
+        const roomName = sc.room_number || (classroomName ? `ห้อง ${classroomName}` : 'ห้องเรียน');
 
         list.push({
           id: `schedule-${sc.id}-w${wOffset}`,
-          title: `${sc.subject?.code || ''} ${sc.subject?.name || 'คาบเรียน'} (${startStr} - ${endStr})`,
+          title: `${sc.subject?.code || ''} ${sc.subject?.name || 'คาบเรียน'} [${roomName}]`,
           start,
           end,
           color: sc.subject?.color || '#ec4899',
           data: {
             type: 'schedule',
             subject: sc.subject,
-            room: sc.room_number,
+            room: roomName,
+            classroom: sc.classroom || classroomName,
             startTime: startStr,
             endTime: endStr,
             dayOfWeek: sc.day_of_week,
@@ -253,7 +259,7 @@ export default function ClassroomCalendar({
           <CardHeader className="pb-3 border-b border-pink-100/80">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-pink-700 bg-pink-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
+                <Timer className="w-3 h-3" />
                 สรุปการสอนวันนี้
               </span>
               <span className="text-[11px] font-bold text-slate-500">
@@ -306,7 +312,12 @@ export default function ClassroomCalendar({
                       type="button"
                       onClick={() => handleDirectAttendanceCheck({
                         start: new Date(),
-                        data: { subject: sc.subject, room: sc.room_number },
+                        data: {
+                          subject: sc.subject,
+                          room: sc.room_number,
+                          startTime: sc.start_time,
+                          endTime: sc.end_time,
+                        },
                       })}
                       className="w-full text-left p-2.5 rounded-xl border border-slate-100 hover:border-pink-300 bg-white hover:bg-pink-50/20 transition-all shadow-2xs space-y-1 cursor-pointer group"
                     >
@@ -367,7 +378,12 @@ export default function ClassroomCalendar({
                   key={sc.id}
                   onClick={() => handleDirectAttendanceCheck({
                     start: new Date(),
-                    data: { subject: sc.subject, room: sc.room_number },
+                    data: {
+                      subject: sc.subject,
+                      room: sc.room_number,
+                      startTime: sc.start_time,
+                      endTime: sc.end_time,
+                    },
                   })}
                   className="p-2.5 rounded-xl border border-slate-100 hover:border-pink-200 bg-slate-50/50 hover:bg-pink-50/20 transition-all space-y-1 cursor-pointer"
                 >
@@ -379,8 +395,13 @@ export default function ClassroomCalendar({
                       {sc.start_time} - {sc.end_time}
                     </span>
                   </div>
-                  <div className="font-bold text-slate-800 truncate text-[11px]">
-                    {sc.subject?.code} {sc.subject?.name}
+                  <div className="flex items-center justify-between gap-1 text-[11px]">
+                    <span className="font-bold text-slate-800 truncate">
+                      {sc.subject?.code} {sc.subject?.name}
+                    </span>
+                    <span className="shrink-0 text-[10px] text-slate-500 font-medium">
+                      {sc.room_number || `ห้อง ${classroomName}`}
+                    </span>
                   </div>
                 </div>
               ))

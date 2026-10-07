@@ -1,17 +1,18 @@
 // @ts-nocheck
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   useEventCalendarNavigation,
   useEventCalendarOccurrences,
 } from '@/components/ui/reui-event-calendar';
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Clock, MapPin, CheckCircle2, BookOpen } from 'lucide-react';
+import { Clock, MapPin, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HorizontalWeekMatrixProps {
+  classroomName?: string;
   onEventClick?: (event: any) => void;
   dayStartHour?: number;
   dayEndHour?: number;
@@ -27,12 +28,23 @@ const DAYS_CONFIG = [
 ];
 
 export default function HorizontalWeekMatrix({
+  classroomName,
   onEventClick,
   dayStartHour = 8,
   dayEndHour = 17,
 }: HorizontalWeekMatrixProps) {
   const { date } = useEventCalendarNavigation();
   const occurrences = useEventCalendarOccurrences();
+
+  // Real-time current time tracker (updates every 30s)
+  const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Monday to Friday of current week
   const weekDays = useMemo(() => {
@@ -111,7 +123,7 @@ export default function HorizontalWeekMatrix({
                         isLunch ? 'text-amber-700 font-bold' : 'text-slate-400'
                       )}
                     >
-                      {isLunch ? '☕ พักเที่ยง' : `ถึง ${String(h + 1).padStart(2, '0')}:00`}
+                      {isLunch ? 'พักเที่ยง' : `ถึง ${String(h + 1).padStart(2, '0')}:00`}
                     </div>
                   </div>
                 );
@@ -167,11 +179,6 @@ export default function HorizontalWeekMatrix({
                       >
                         วัน{wDay.label}
                       </span>
-                      {wDay.isToday && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-pink-500 text-white shadow-2xs">
-                          วันนี้
-                        </span>
-                      )}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span
@@ -190,12 +197,12 @@ export default function HorizontalWeekMatrix({
                     </div>
                   </div>
 
-                  {/* Right Track: Hour grid + period guidelines + event pills */}
+                  {/* Right Track: Hour grid + period guidelines + real-time indicator + event pills */}
                   <div
                     className={cn(
-                      'flex-1 relative h-16 overflow-hidden',
+                      'flex-1 relative h-20 overflow-hidden',
                       wDay.isToday
-                        ? 'bg-pink-50/10'
+                        ? 'bg-pink-50/15'
                         : !hasClasses
                         ? 'bg-slate-100/30'
                         : 'bg-white'
@@ -210,21 +217,18 @@ export default function HorizontalWeekMatrix({
                             key={h}
                             className={cn(
                               'h-full border-r relative transition-colors',
-                              // ชัดเจนทุกเส้นแบ่งคาบ
                               isLunch
-                                ? 'bg-amber-100/25 border-r-amber-200/80'
+                                ? 'bg-amber-100/20 border-r-amber-200/80'
                                 : wDay.isToday
-                                ? 'border-r-pink-100/90'
-                                : 'border-r-slate-200/80',
-                              // สลับสีอ่อนเพื่อให้อ่านง่าย
+                                ? 'border-r-pink-100/80'
+                                : 'border-r-slate-200/70',
                               i % 2 === 1 && !isLunch && (
-                                wDay.isToday ? 'bg-pink-50/20' : hasClasses ? 'bg-slate-50/50' : 'bg-slate-100/30'
+                                wDay.isToday ? 'bg-pink-50/20' : hasClasses ? 'bg-slate-50/40' : 'bg-slate-100/30'
                               )
                             )}
                           >
-                            {/* Watermark label for lunch slot */}
                             {isLunch && (
-                              <div className="h-full flex items-center justify-center opacity-20 text-[10px] font-bold text-amber-900 select-none">
+                              <div className="h-full flex items-center justify-center opacity-30 text-[10px] font-bold text-amber-900 select-none">
                                 พักเที่ยง
                               </div>
                             )}
@@ -232,6 +236,40 @@ export default function HorizontalWeekMatrix({
                         );
                       })}
                     </div>
+
+                    {/* Real-time Indicator Line (Only on Today) */}
+                    {wDay.isToday && (() => {
+                      const currentHours = now.getHours();
+                      const currentMinutes = now.getMinutes();
+                      const currentTotalMins = (currentHours - dayStartHour) * 60 + currentMinutes;
+                      
+                      // If between 08:00 and 17:00 -> calculate exact position
+                      // If past 17:00 (until 08:00 morning) -> hold line at the end (100%) as requested
+                      const isPastSchedule = currentHours >= dayEndHour || currentHours < dayStartHour;
+                      const currentPercent = isPastSchedule 
+                        ? 100 
+                        : Math.max(0, Math.min(100, (currentTotalMins / totalMinutes) * 100));
+
+                      return (
+                        <div
+                          className="absolute top-0 bottom-0 z-30 pointer-events-none flex flex-col items-center transition-all duration-300"
+                          style={{ left: `${currentPercent}%` }}
+                        >
+                          {/* Time badge at top */}
+                          <div className={cn(
+                            "absolute -top-0.5 transform -translate-x-1/2 text-white text-[9px] font-mono font-black px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap",
+                            isPastSchedule ? "bg-slate-700" : "bg-rose-600 animate-pulse"
+                          )}>
+                            {format(now, 'HH:mm')} น.{isPastSchedule ? ' (หมดคาบ)' : ''}
+                          </div>
+                          {/* Vertical indicator line */}
+                          <div className={cn(
+                            "w-[2px] h-full shadow-sm",
+                            isPastSchedule ? "bg-slate-400 border-l border-dashed border-slate-600" : "bg-rose-500"
+                          )} />
+                        </div>
+                      );
+                    })()}
 
                     {/* Events inside this day row */}
                     {!hasClasses ? (
@@ -244,8 +282,9 @@ export default function HorizontalWeekMatrix({
                       dayOccurrences.map((occ) => {
                         const left = getPositionPercent(occ.start);
                         const right = getPositionPercent(occ.end);
-                        const width = Math.max(9, right - left);
+                        const width = Math.max(10, right - left);
                         const isAttendance = occ.event.data?.type === 'attendance_session';
+                        const roomLabel = occ.event.data?.room || (classroomName ? `ห้อง ${classroomName}` : null);
 
                         return (
                           <button
@@ -253,37 +292,42 @@ export default function HorizontalWeekMatrix({
                             type="button"
                             onClick={() => onEventClick?.(occ.event)}
                             className={cn(
-                              'absolute top-1.5 bottom-1.5 rounded-xl px-2.5 text-left shadow-2xs transition-all hover:scale-[1.015] hover:shadow-md cursor-pointer flex flex-col justify-center border z-20 group',
+                              'absolute top-1.5 bottom-1.5 rounded-xl px-2.5 py-1.5 text-left shadow-2xs transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer flex flex-col justify-between border z-20 group',
                               isAttendance
-                                ? 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:border-emerald-500'
+                                ? 'bg-emerald-50/95 text-emerald-950 border-emerald-300 hover:border-emerald-500'
                                 : 'bg-pink-50/95 text-pink-950 border-pink-300 hover:border-pink-500 ring-1 ring-pink-200/50'
                             )}
                             style={{
                               left: `${left}%`,
                               width: `${width}%`,
+                              minWidth: '125px',
                             }}
-                            title={`${occ.event.title} (คลิกเพื่อเช็คชื่อ)`}
+                            title={`${occ.event.title} • ${roomLabel || 'ห้องเรียน'} (คลิกเพื่อเช็คชื่อ)`}
                           >
-                            <div className="flex items-center gap-1.5 font-extrabold text-[11px] truncate">
+                            {/* Header: Title */}
+                            <div className="flex items-center gap-1.5 font-black text-xs truncate">
                               {isAttendance ? (
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                               ) : (
                                 <span
-                                  className="w-2 h-2 rounded-full shrink-0 ring-1 ring-white"
+                                  className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white"
                                   style={{ backgroundColor: occ.event.color || '#ec4899' }}
                                 />
                               )}
                               <span className="truncate group-hover:text-pink-600 transition-colors">
-                                {occ.event.title}
+                                {occ.event.title.replace(/\s*\[.*?\]$/, '')}
                               </span>
                             </div>
-                            <div className="text-[9.5px] text-slate-600 font-mono font-medium truncate flex items-center gap-1 mt-0.5">
-                              <span className="font-semibold text-slate-700">
-                                {format(occ.start, 'HH:mm')}-{format(occ.end, 'HH:mm')} น.
+
+                            {/* Sub-row: Time & Room location */}
+                            <div className="flex items-center justify-between gap-1 text-[10px] text-slate-700 font-medium mt-1">
+                              <span className="font-mono font-bold text-slate-800 shrink-0">
+                                {format(occ.start, 'HH:mm')}-{format(occ.end, 'HH:mm')}
                               </span>
-                              {occ.event.data?.room && (
-                                <span className="text-slate-400 font-sans">• {occ.event.data.room}</span>
-                              )}
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-white border border-pink-200 text-pink-700 font-extrabold text-[9.5px] shadow-2xs shrink-0 max-w-[70px] truncate">
+                                <MapPin className="w-2.5 h-2.5 text-pink-600 shrink-0" />
+                                <span className="truncate">{roomLabel || 'ห้องเรียน'}</span>
+                              </span>
                             </div>
                           </button>
                         );

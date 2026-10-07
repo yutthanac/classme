@@ -20,7 +20,6 @@ import {
   AlertCircle,
   HelpCircle,
   ChevronRight,
-  Sparkles,
   Save,
   Coffee,
   Undo2,
@@ -676,8 +675,8 @@ export default function ScheduleManagementModal({
             {/* Quick Tips */}
             <div className="p-4 bg-gradient-to-br from-pink-50/70 to-rose-50/50 border-t border-pink-100 text-xs text-slate-700 space-y-1.5">
               <div className="font-bold flex items-center gap-1.5 text-pink-700">
-                <Sparkles className="w-4 h-4" />
-                <span>การเลื่อนบล็อกแบบรวดเร็ว</span>
+                <HelpCircle className="w-4 h-4" />
+                <span>คำแนะนำการปรับตาราง</span>
               </div>
               <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600">
                 <li><b>เลื่อนเวลาในวันเดิม:</b> คลิกค้างตรงกลางบล็อกแล้วเลื่อนซ้าย/ขวาได้ทันที ไม่กระตุก</li>
@@ -809,7 +808,7 @@ export default function ScheduleManagementModal({
                                 style={{
                                   left: `${left}%`,
                                   width: `${width}%`,
-                                  minWidth: '100px',
+                                  minWidth: '125px',
                                   backgroundColor: sc.subject?.color ? `${sc.subject.color}20` : '#fdf2f8',
                                   borderColor: sc.subject?.color || '#ec4899',
                                 }}
@@ -833,10 +832,12 @@ export default function ScheduleManagementModal({
                                 </div>
 
                                 {/* Top: Subject Title & Delete */}
-                                <div className="flex items-center justify-between gap-1 pointer-events-auto shrink-0">
-                                  <div className="font-black text-xs text-slate-900 truncate flex items-center gap-1 min-w-0">
+                                <div className="flex items-start justify-between gap-1 pointer-events-auto shrink-0">
+                                  <div className="font-black text-xs text-slate-900 truncate flex items-center gap-1 min-w-0 flex-1">
                                     <Move className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                                    <span className="truncate">{sc.subject?.code} {sc.subject?.name}</span>
+                                    <span className="truncate" title={`${sc.subject?.code || ''} ${sc.subject?.name || ''}`}>
+                                      {sc.subject?.code} {sc.subject?.name}
+                                    </span>
                                   </div>
                                   <button
                                     type="button"
@@ -849,95 +850,87 @@ export default function ScheduleManagementModal({
                                   </button>
                                 </div>
 
-                                {/* Bottom: Level (ชั้นเรียน) & Room (ห้องสอน) with Quick Edit Button */}
+                                {/* Middle: Time & Room Badges */}
                                 <div
                                   onMouseDown={(e) => e.stopPropagation()}
-                                  className="flex items-center justify-between gap-1 pt-1 mt-auto overflow-visible"
+                                  className="flex items-center flex-wrap gap-1.5 my-auto pointer-events-auto"
                                 >
-                                  {/* Info Badges: Level & Room */}
-                                  <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
-                                    {/* Level badge (ชั้น) */}
-                                    {(() => {
-                                      const matchedCr = classrooms.find((c) => c.name === (sc.classroom || currentClassroom));
-                                      const levelLabel = matchedCr?.level || matchedCr?.name || sc.classroom || currentClassroom;
-                                      return (
-                                        <div
-                                          className="flex items-center gap-0.5 px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-200/80 rounded text-[9px] font-black truncate shadow-2xs"
-                                          title={`ชั้นเรียน: ${levelLabel} (${sc.classroom || currentClassroom})`}
-                                        >
-                                          <GraduationCap className="w-2.5 h-2.5 shrink-0 text-sky-600" />
-                                          <span className="truncate">{levelLabel}</span>
-                                        </div>
-                                      );
-                                    })()}
-
-                                    {/* Room badge (ห้องสอน เช่น 243) */}
-                                    <div
-                                      onClick={() => {
-                                        setEditingRoomSchedule(sc);
-                                        setRoomInputVal(sc.room_number || `ห้อง ${sc.classroom || currentClassroom}`);
-                                      }}
-                                      className="flex items-center gap-0.5 px-1.5 py-0.5 bg-white/90 hover:bg-pink-50 text-slate-800 hover:text-pink-700 border border-slate-200/90 rounded text-[9px] font-extrabold truncate cursor-pointer transition-colors shadow-2xs"
-                                      title="คลิกเพื่อแก้ไขเลขห้องสอน"
-                                    >
-                                      <MapPin className="w-2.5 h-2.5 shrink-0 text-pink-600" />
-                                      <span className="truncate">{sc.room_number || `ห้อง ${sc.classroom || currentClassroom}`}</span>
-                                      <Edit2 className="w-2 h-2 shrink-0 text-slate-400 group-hover:text-pink-500 ml-0.5" />
-                                    </div>
+                                  {/* Time display */}
+                                  <div
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/90 border border-slate-200/90 text-[10px] font-mono font-bold text-slate-700 shadow-2xs"
+                                    title={`เวลาเรียน: ${sc.start_time} - ${sc.end_time} น.`}
+                                  >
+                                    <Clock className="w-2.5 h-2.5 text-pink-500 shrink-0" />
+                                    <span>{sc.start_time}-{sc.end_time}</span>
                                   </div>
 
-                                  {/* Hover Tooltip Action Icons: Time & Classroom */}
-                                  <div className="flex items-center gap-0.5 shrink-0">
-                                    {/* Time icon with tooltip */}
-                                    <div className="relative group/tooltip">
-                                      <div className="w-5 h-5 rounded flex items-center justify-center bg-white/90 hover:bg-pink-50 text-slate-600 hover:text-pink-600 border border-slate-200/80 shadow-2xs cursor-pointer transition-colors">
-                                        <Clock className="w-3 h-3 text-pink-500" />
-                                      </div>
-                                      <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover/tooltip:flex flex-col items-center z-50 pointer-events-none">
-                                        <div className="bg-slate-900 text-white text-[10px] font-mono font-bold px-2 py-1 rounded-md shadow-lg whitespace-nowrap">
-                                          เวลา {sc.start_time} - {sc.end_time} น.
-                                        </div>
-                                        <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-1" />
-                                      </div>
-                                    </div>
+                                  {/* Room badge */}
+                                  <div
+                                    onClick={() => {
+                                      setEditingRoomSchedule(sc);
+                                      setRoomInputVal(sc.room_number || `ห้อง ${sc.classroom || currentClassroom}`);
+                                    }}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-white/90 hover:bg-pink-50 text-slate-800 hover:text-pink-700 border border-slate-200/90 rounded-md text-[10px] font-bold truncate cursor-pointer transition-colors shadow-2xs group/room"
+                                    title="คลิกเพื่อแก้ไขเลขห้องสอน"
+                                  >
+                                    <MapPin className="w-2.5 h-2.5 shrink-0 text-pink-600" />
+                                    <span className="truncate">{sc.room_number || `ห้อง ${sc.classroom || currentClassroom}`}</span>
+                                  </div>
+                                </div>
 
-                                    {/* Quick Edit Room Button */}
+                                {/* Bottom: Level & Classroom Controls */}
+                                <div
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  className="flex items-center justify-between gap-1 pt-0.5 shrink-0"
+                                >
+                                  {/* Level badge */}
+                                  {(() => {
+                                    const matchedCr = classrooms.find((c) => c.name === (sc.classroom || currentClassroom));
+                                    const levelLabel = matchedCr?.level || matchedCr?.name || sc.classroom || currentClassroom;
+                                    return (
+                                      <div
+                                        className="flex items-center gap-1 px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-200/80 rounded-md text-[9px] font-black truncate shadow-2xs"
+                                        title={`ชั้นเรียน: ${levelLabel} (${sc.classroom || currentClassroom})`}
+                                      >
+                                        <GraduationCap className="w-2.5 h-2.5 shrink-0 text-sky-600" />
+                                        <span className="truncate">{levelLabel}</span>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* Action Buttons: Edit Room & Change Classroom */}
+                                  <div className="flex items-center gap-1 shrink-0 ml-auto">
+                                    {/* Edit Room Button */}
                                     <button
                                       type="button"
                                       onClick={() => {
                                         setEditingRoomSchedule(sc);
                                         setRoomInputVal(sc.room_number || `ห้อง ${sc.classroom || currentClassroom}`);
                                       }}
-                                      className="w-5 h-5 rounded flex items-center justify-center bg-white/90 hover:bg-pink-50 text-pink-600 border border-pink-200 shadow-2xs cursor-pointer transition-colors"
-                                      title="แก้ไขเลขห้องเรียน/สถานที่"
+                                      className="h-5 px-1.5 rounded-md flex items-center gap-0.5 bg-white/90 hover:bg-pink-50 text-pink-600 border border-pink-200 shadow-2xs cursor-pointer transition-colors text-[9px] font-bold"
+                                      title="แก้ไขห้องเรียน"
                                     >
                                       <Edit2 className="w-2.5 h-2.5" />
                                     </button>
 
-                                    {/* Classroom selector icon with tooltip & popup dropdown */}
-                                    <div className="relative group/tooltip">
-                                      <label className="w-5 h-5 rounded flex items-center justify-center bg-white/90 hover:bg-sky-50 text-sky-600 border border-slate-200/80 shadow-2xs cursor-pointer transition-colors m-0">
-                                        <Users className="w-3 h-3 text-sky-600" />
-                                        <select
-                                          value={sc.classroom || currentClassroom}
-                                          onChange={(e) => handleUpdateScheduleClassroom(sc.id, e.target.value)}
-                                          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                                          title={`ชั้นเรียน: ${sc.classroom || currentClassroom}`}
-                                        >
-                                          {classrooms.map((c) => (
-                                            <option key={c.id || c.name} value={c.name} className="text-slate-800 bg-white font-medium">
-                                              {c.name} {c.level ? `(${c.level})` : ''}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </label>
-                                      <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover/tooltip:flex flex-col items-center z-50 pointer-events-none">
-                                        <div className="bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-lg whitespace-nowrap">
-                                          ชั้นเรียน: {sc.classroom || currentClassroom} (คลิกเพื่อเปลี่ยน)
-                                        </div>
-                                        <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-1" />
-                                      </div>
-                                    </div>
+                                    {/* Classroom selector icon & dropdown */}
+                                    <label
+                                      className="relative h-5 px-1.5 rounded-md flex items-center gap-0.5 bg-white/90 hover:bg-sky-50 text-sky-600 border border-slate-200/80 shadow-2xs cursor-pointer transition-colors m-0 text-[9px] font-bold"
+                                      title={`เปลี่ยนห้อง: ${sc.classroom || currentClassroom}`}
+                                    >
+                                      <Users className="w-2.5 h-2.5 text-sky-600 shrink-0" />
+                                      <select
+                                        value={sc.classroom || currentClassroom}
+                                        onChange={(e) => handleUpdateScheduleClassroom(sc.id, e.target.value)}
+                                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                                      >
+                                        {classrooms.map((c) => (
+                                          <option key={c.id || c.name} value={c.name} className="text-slate-800 bg-white font-medium">
+                                            {c.name} {c.level ? `(${c.level})` : ''}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
                                   </div>
                                 </div>
                               </div>

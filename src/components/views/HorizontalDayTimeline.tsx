@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   useEventCalendarNavigation,
   useEventCalendarOccurrences,
@@ -13,6 +13,7 @@ import { Clock, MapPin, CheckCircle2, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HorizontalDayTimelineProps {
+  classroomName?: string;
   onEventClick?: (event: any) => void;
   dayStartHour?: number;
   dayEndHour?: number;
@@ -21,6 +22,7 @@ interface HorizontalDayTimelineProps {
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 
 export default function HorizontalDayTimeline({
+  classroomName,
   onEventClick,
   dayStartHour = 8,
   dayEndHour = 17,
@@ -28,6 +30,15 @@ export default function HorizontalDayTimeline({
   const { date } = useEventCalendarNavigation();
   const settings = useEventCalendarSettings();
   const occurrences = useEventCalendarOccurrences();
+
+  const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Filter events belonging to currently selected day
   const dayEvents = useMemo(() => {
@@ -121,7 +132,38 @@ export default function HorizontalDayTimeline({
                 <span>ไม่มีคาบเรียนหรือกิจกรรมในวันนี้</span>
               </div>
             ) : (
-              <div className="absolute inset-0 p-3">
+              <>
+                {/* Real-time Indicator Line (If date is today) */}
+                {isSameDay(date, new Date()) && (() => {
+                  const currentHours = now.getHours();
+                  const currentMinutes = now.getMinutes();
+                  const currentTotalMins = (currentHours - dayStartHour) * 60 + currentMinutes;
+                  
+                  const isPastSchedule = currentHours >= dayEndHour || currentHours < dayStartHour;
+                  const currentPercent = isPastSchedule
+                    ? 100
+                    : Math.max(0, Math.min(100, (currentTotalMins / totalMinutes) * 100));
+
+                  return (
+                    <div
+                      className="absolute top-0 bottom-0 z-30 pointer-events-none flex flex-col items-center transition-all duration-300"
+                      style={{ left: `${currentPercent}%` }}
+                    >
+                      <div className={cn(
+                        "absolute -top-0.5 transform -translate-x-1/2 text-white text-[9px] font-mono font-black px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap",
+                        isPastSchedule ? "bg-slate-700" : "bg-rose-600 animate-pulse"
+                      )}>
+                        {format(now, 'HH:mm')} น.{isPastSchedule ? ' (หมดคาบ)' : ''}
+                      </div>
+                      <div className={cn(
+                        "w-[2px] h-full shadow-sm",
+                        isPastSchedule ? "bg-slate-400 border-l border-dashed border-slate-600" : "bg-rose-500"
+                      )} />
+                    </div>
+                  );
+                })()}
+
+                <div className="absolute inset-0 p-3">
                 {dayEvents.map((occ, idx) => {
                   const left = getPositionPercent(occ.start);
                   const right = getPositionPercent(occ.end);
@@ -167,17 +209,21 @@ export default function HorizontalDayTimeline({
                         <span>
                           {format(occ.start, 'HH:mm')} - {format(occ.end, 'HH:mm')}
                         </span>
-                        {occ.event.data?.room && (
-                          <span className="ml-1 text-slate-400 font-sans">
-                            • {occ.event.data.room}
-                          </span>
-                        )}
+                        {(() => {
+                          const roomLabel = occ.event.data?.room || (classroomName ? `ห้อง ${classroomName}` : null);
+                          return roomLabel ? (
+                            <span className="ml-1 text-slate-500 font-sans font-medium">
+                              • {roomLabel}
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
                     </button>
                   );
                 })}
               </div>
-            )}
+            </>
+          )}
           </div>
         </div>
       </div>

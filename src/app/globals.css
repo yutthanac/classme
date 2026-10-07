@@ -5,8 +5,16 @@
     --font-sans: var(--font-noto-thai), "Noto Sans Thai", system-ui, -apple-system, sans-serif;
   }
 
+  html {
+    font-size: 16.5px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     font-family: var(--font-sans);
+    line-height: 1.55;
   }
 }
 
@@ -40,15 +48,15 @@
     border: 1px solid var(--color-slate-200);
     border-radius: 0.75rem;
     color: var(--color-slate-800);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     font-weight: 500;
-    line-height: 1.25rem;
-    padding-inline: 0.75rem 2rem;
+    line-height: 1.35rem;
+    padding-inline: 0.85rem 2.25rem;
     cursor: pointer;
     transition: border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out;
   }
-  .ui-select-sm { height: 2rem; }
-  .ui-select-md { height: 2.25rem; }
+  .ui-select-sm { height: 2.25rem; }
+  .ui-select-md { height: 2.5rem; }
 
   .ui-select:hover { border-color: var(--color-pink-300); background-color: #fff; }
   .ui-select:focus-visible {
@@ -97,7 +105,7 @@
     .ui-select option {
       padding: 0.5rem 0.625rem;
       border-radius: 0.5rem;
-      font-size: 0.75rem;
+      font-size: 0.875rem;
       color: var(--color-slate-700);
       cursor: pointer;
     }

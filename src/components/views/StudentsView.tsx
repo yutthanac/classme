@@ -14,20 +14,49 @@ import {
   AlertCircle,
   Clock,
   FileText,
+  UploadCloud,
+  Download,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useApp } from '@/context/AppContext';
 import { Button, PageContainer, Select, LiquidWaveSpinner, TableRowSkeleton } from '@/components/ui';
+import StudentImportModal from './StudentImportModal';
+import ImportSpeedDial, { ImportOptionType } from '@/components/ui/import-speed-dial';
 
 interface StudentsViewProps {
   initialClassroom?: string | null;
 }
 
 export default function StudentsView({ initialClassroom }: StudentsViewProps = {}) {
+  const { selectedClassroom: appContextClassroom, selectedSubjectId: appContextSubjId } = useApp();
   const [students, setStudents] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [selectedClassroom, setSelectedClassroom] = useState<string>(initialClassroom || 'all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  // Import Modal state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importInitialTab, setImportInitialTab] = useState<'file' | 'camera' | 'paste'>('file');
+  const [importAutoTrigger, setImportAutoTrigger] = useState<'file' | 'camera' | 'image' | null>(null);
+
+  const handleSelectImportOption = (option: ImportOptionType) => {
+    if (option === 'file') {
+      setImportInitialTab('file');
+      setImportAutoTrigger('file');
+    } else if (option === 'image') {
+      setImportInitialTab('camera');
+      setImportAutoTrigger('image');
+    } else if (option === 'camera') {
+      setImportInitialTab('camera');
+      setImportAutoTrigger('camera');
+    } else {
+      setImportInitialTab('paste');
+      setImportAutoTrigger(null);
+    }
+    setIsImportModalOpen(true);
+  };
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -193,10 +222,26 @@ export default function StudentsView({ initialClassroom }: StudentsViewProps = {
     }
   };
 
+  const handleExportExcel = () => {
+    try {
+      setExporting(true);
+      const targetRoom =
+        selectedClassroom !== 'all'
+          ? selectedClassroom
+          : appContextClassroom || (classrooms[0]?.name ?? '1/1');
+      const downloadUrl = api.getExportExcelUrl(targetRoom, appContextSubjId || undefined);
+      window.open(downloadUrl, '_blank');
+    } catch (e: any) {
+      alert('ส่งออกไฟล์ Excel ไม่สำเร็จ: ' + e.message);
+    } finally {
+      setTimeout(() => setExporting(false), 800);
+    }
+  };
+
   return (
     <PageContainer>
       {/* Search & Filter Header (White 60 - Pink 30 - Sky Blue 10) */}
-      <div className="bg-white p-5 rounded-2xl border border-pink-100/80 flex flex-wrap items-center justify-between gap-4 shadow-xs">
+      <div className="bg-white p-5 rounded-2xl border border-pink-100/80 flex flex-wrap items-center justify-between gap-4 shadow-xs relative z-30">
         <div className="flex flex-wrap items-center gap-3 flex-1">
           {/* Search */}
           <div className="relative min-w-[260px]">
@@ -224,14 +269,28 @@ export default function StudentsView({ initialClassroom }: StudentsViewProps = {
           </Select>
         </div>
 
-        {/* Add Student Button - Pink 30% */}
-        <Button
-          onClick={() => handleOpenModal()}
-          variant="primary"
-        >
-          <Plus className="w-4 h-4" />
-          <span>เพิ่มนักเรียนใหม่</span>
-        </Button>
+        {/* Action Buttons: Export Excel + Import Speed Dial + Add single student */}
+        <div className="flex items-center gap-2.5">
+          <Button
+            onClick={handleExportExcel}
+            variant="accent"
+            loading={exporting}
+            icon={<Download className="w-4 h-4" />}
+          >
+            <span>ส่งออก Excel</span>
+          </Button>
+
+          {/* Animated Speed Dial with curved spring arc transition */}
+          <ImportSpeedDial onSelectOption={handleSelectImportOption} />
+
+          <Button
+            onClick={() => handleOpenModal()}
+            variant="primary"
+          >
+            <Plus className="w-4 h-4" />
+            <span>เพิ่มนักเรียนใหม่</span>
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -609,6 +668,20 @@ export default function StudentsView({ initialClassroom }: StudentsViewProps = {
           </div>
         </div>
       )}
+
+      {/* Multi-Modal Student Import Modal (File, Camera AI, Copy-Paste) */}
+      <StudentImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          loadStudents();
+          loadClassrooms();
+        }}
+        defaultClassroom={selectedClassroom !== 'all' ? selectedClassroom : null}
+        classrooms={classrooms}
+        initialTab={importInitialTab}
+        autoTrigger={importAutoTrigger}
+      />
     </PageContainer>
   );
 }

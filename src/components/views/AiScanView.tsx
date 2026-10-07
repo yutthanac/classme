@@ -8,7 +8,7 @@ import {
   Clock,
   FileText,
   X,
-  Sparkles,
+  FileSearch,
   Save,
   CheckCircle2,
   RefreshCw,
@@ -347,7 +347,7 @@ export default function AiScanView({ initialClassroom }: AiScanViewProps = {}) {
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <FileSearch className="w-4 h-4" />
                     <span>เริ่มให้อ่านเอกสารด้วย AI</span>
                   </>
                 )}
@@ -383,7 +383,7 @@ export default function AiScanView({ initialClassroom }: AiScanViewProps = {}) {
           ) : (
             <div className="p-4 bg-pink-50/70 border border-pink-200 rounded-2xl flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-2.5 text-xs text-pink-900">
-                <Sparkles className="w-4 h-4 text-pink-600" />
+                <FileSearch className="w-4 h-4 text-pink-600" />
                 <span>
                   AI อ่านข้อมูลสำเร็จ (ความแม่นยำ {(aiResult.summary.overall_confidence * 100).toFixed(0)}%)
                   กรุณาตรวจสอบความถูกต้องก่อนกดยืนยัน

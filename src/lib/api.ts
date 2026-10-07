@@ -191,6 +191,28 @@ export const api = {
   deleteStudent: (id: number | string) => fetchApi<{ status: string }>(`/students/${id}`, {
     method: 'DELETE',
   }),
+  batchImportStudents: (data: { classroom: string; students: any[] }) =>
+    fetchApi<{ status: string; message: string; data: any }>('/students/batch-import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  aiScanRoster: async (formData: FormData) => {
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}/students/ai-scan-roster`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Upload failed with status ${res.status}`);
+    }
+    return res.json();
+  },
 
   // Classrooms
   getClassrooms: async () => {

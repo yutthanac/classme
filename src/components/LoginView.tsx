@@ -10,7 +10,6 @@ import {
   LogIn,
   ShieldCheck,
   UserCheck,
-  Sparkles,
   AlertCircle,
   CheckCircle2,
 } from 'lucide-react';
@@ -83,7 +82,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
             {/* Sub-badge: Sky Blue 10% */}
             <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200/80 text-[11px] font-semibold">
-              <Sparkles className="w-3 h-3 text-sky-500" />
+              <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
               <span>เข้าสู่ระบบเพื่อเริ่มใช้งาน</span>
             </div>
           </div>

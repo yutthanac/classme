@@ -33,6 +33,9 @@ interface StudentRecord {
 
 interface AttendanceCheckViewProps {
   initialClassroom?: string | null;
+  initialSubjectId?: string | null;
+  initialDate?: string | null;
+  initialPeriod?: string | null;
   currentUser?: any;
 }
 
@@ -54,6 +57,9 @@ function isSamePerson(name1?: string | null, name2?: string | null): boolean {
 
 export default function AttendanceCheckView({
   initialClassroom,
+  initialSubjectId,
+  initialDate,
+  initialPeriod,
   currentUser: propCurrentUser,
 }: AttendanceCheckViewProps = {}) {
   const { currentUser: appContextUser, selectedSubjectId: appContextSubjId } = useApp();
@@ -62,10 +68,10 @@ export default function AttendanceCheckView({
 
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(appContextSubjId || '');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(initialSubjectId || appContextSubjId || '');
   const [selectedClassroom, setSelectedClassroom] = useState<string>(initialClassroom || '');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [period, setPeriod] = useState<string>('คาบ 1-2');
+  const [date, setDate] = useState<string>(initialDate || new Date().toISOString().split('T')[0]);
+  const [period, setPeriod] = useState<string>(initialPeriod || 'คาบ 1-2');
   const [topic, setTopic] = useState<string>('');
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -141,8 +147,9 @@ export default function AttendanceCheckView({
         if (sbList.length > 0) {
           // Find initial default subject:
           let defaultSubj = sbList[0];
-          if (appContextSubjId && sbList.some((s: any) => String(s.id) === String(appContextSubjId))) {
-            defaultSubj = sbList.find((s: any) => String(s.id) === String(appContextSubjId));
+          const targetSubjId = initialSubjectId || appContextSubjId;
+          if (targetSubjId && sbList.some((s: any) => String(s.id) === String(targetSubjId))) {
+            defaultSubj = sbList.find((s: any) => String(s.id) === String(targetSubjId));
           } else if (!isAdmin && currentUser) {
             const mySubj = sbList.find((s: any) => isSamePerson(s.teacher_name, currentUser.name));
             if (mySubj) defaultSubj = mySubj;
@@ -152,7 +159,7 @@ export default function AttendanceCheckView({
 
           // Find available classrooms for this default subject
           const availableRooms = getAvailableClassrooms(defaultSubjId, crList, sbList, currentUser);
-          if (initialClassroom && availableRooms.some((r: any) => r.name === initialClassroom)) {
+          if (initialClassroom) {
             setSelectedClassroom(initialClassroom);
           } else if (availableRooms.length > 0) {
             setSelectedClassroom(availableRooms[0].name);
@@ -165,7 +172,24 @@ export default function AttendanceCheckView({
       }
     }
     loadMeta();
-  }, [currentUser?.name, isAdmin]);
+  }, [currentUser?.name, isAdmin, initialClassroom, initialSubjectId, appContextSubjId]);
+
+  // Sync state if props change dynamically
+  useEffect(() => {
+    if (initialClassroom) setSelectedClassroom(initialClassroom);
+  }, [initialClassroom]);
+
+  useEffect(() => {
+    if (initialSubjectId) setSelectedSubjectId(String(initialSubjectId));
+  }, [initialSubjectId]);
+
+  useEffect(() => {
+    if (initialDate) setDate(initialDate);
+  }, [initialDate]);
+
+  useEffect(() => {
+    if (initialPeriod) setPeriod(initialPeriod);
+  }, [initialPeriod]);
 
   // Handle user changing the Subject
   const handleSubjectChange = (newSubjId: string) => {
@@ -185,8 +209,15 @@ export default function AttendanceCheckView({
 
   // Recompute available classrooms for current selectedSubjectId
   const availableClassrooms = useMemo(() => {
-    return getAvailableClassrooms(selectedSubjectId);
-  }, [selectedSubjectId, classrooms, subjects, currentUser?.name, isAdmin]);
+    const list = getAvailableClassrooms(selectedSubjectId);
+    if (initialClassroom && !list.some((c: any) => c.name === initialClassroom)) {
+      const matchInCr = classrooms.find((c: any) => c.name === initialClassroom);
+      if (matchInCr) {
+        return [matchInCr, ...list];
+      }
+    }
+    return list;
+  }, [selectedSubjectId, classrooms, subjects, currentUser?.name, isAdmin, initialClassroom]);
 
   // Current subject object
   const currentSubject = useMemo(() => {

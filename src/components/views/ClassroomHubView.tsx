@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   UserCheck,
@@ -10,10 +11,14 @@ import {
   Save,
   Phone,
   Download,
+  UploadCloud,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { Button, PageContainer, Select, LiquidWaveSpinner, Skeleton } from '@/components/ui';
+import { useApp } from '@/context/AppContext';
+import { Button, PageContainer, Select, LiquidWaveSpinner, Skeleton, Clock } from '@/components/ui';
 import ClassroomCalendar from './ClassroomCalendar';
+import StudentImportModal from './StudentImportModal';
+import ImportSpeedDial, { ImportOptionType } from '@/components/ui/import-speed-dial';
 
 interface ClassroomHubViewProps {
   classroomName: string;
@@ -25,7 +30,30 @@ type HubTab = 'overview' | 'attendance' | 'students' | 'schedules' | 'ai-scan' |
 type AttendanceStatus = 'present' | 'late' | 'leave' | 'absent';
 
 export default function ClassroomHubView({ classroomName, onBack, currentUser }: ClassroomHubViewProps) {
+  const router = useRouter();
+  const { setSelectedClassroom, setSelectedSubjectId: setAppSubjectId } = useApp();
   const [activeHubTab, setActiveHubTab] = useState<HubTab>('overview');
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importInitialTab, setImportInitialTab] = useState<'file' | 'camera' | 'paste'>('file');
+  const [importAutoTrigger, setImportAutoTrigger] = useState<'file' | 'camera' | 'image' | null>(null);
+
+  const handleSelectImportOption = (option: ImportOptionType) => {
+    if (option === 'file') {
+      setImportInitialTab('file');
+      setImportAutoTrigger('file');
+    } else if (option === 'image') {
+      setImportInitialTab('camera');
+      setImportAutoTrigger('image');
+    } else if (option === 'camera') {
+      setImportInitialTab('camera');
+      setImportAutoTrigger('camera');
+    } else {
+      setImportInitialTab('paste');
+      setImportAutoTrigger(null);
+    }
+    setIsImportModalOpen(true);
+  };
+
   const [classroomData, setClassroomData] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -198,6 +226,29 @@ export default function ClassroomHubView({ classroomName, onBack, currentUser }:
     }
   };
 
+  const handleReloadStudents = async () => {
+    try {
+      const res = await api.getStudents({ classroom: classroomName });
+      if (res.data) setStudents(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // If activeHubTab is ever set to 'attendance', redirect to the dedicated attendance page
+  useEffect(() => {
+    if (activeHubTab === 'attendance') {
+      setSelectedClassroom(classroomName);
+      if (selectedSubjectId) setAppSubjectId(String(selectedSubjectId));
+      const params = new URLSearchParams();
+      if (classroomName) params.set('classroom', classroomName);
+      if (selectedSubjectId) params.set('subject_id', String(selectedSubjectId));
+      if (date) params.set('date', date);
+      if (period) params.set('period', period);
+      router.push(`/attendance?${params.toString()}`);
+    }
+  }, [activeHubTab, classroomName, selectedSubjectId, date, period, router, setSelectedClassroom, setAppSubjectId]);
+
   if (loading) {
     return (
       <PageContainer>
@@ -236,7 +287,7 @@ export default function ClassroomHubView({ classroomName, onBack, currentUser }:
   return (
     <PageContainer>
       {/* Top Banner: ห้องเรียนที่เลือก & ปุ่มย้อนกลับ */}
-      <div className="bg-white rounded-3xl border border-pink-100 p-6 shadow-xs space-y-4">
+      <div className="bg-white rounded-3xl border border-pink-100 p-6 shadow-xs space-y-4 relative z-30">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Button
@@ -263,7 +314,9 @@ export default function ClassroomHubView({ classroomName, onBack, currentUser }:
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <Clock />
+            <ImportSpeedDial onSelectOption={handleSelectImportOption} />
             <Button
               onClick={handleExportExcel}
               variant="accent"
@@ -295,10 +348,18 @@ export default function ClassroomHubView({ classroomName, onBack, currentUser }:
           schedules={schedules}
           attendanceSessions={attendanceSessions}
           studentsCount={students.length}
-          onGoToAttendance={(subjectId, targetDate) => {
-            if (subjectId) setSelectedSubjectId(String(subjectId));
-            if (targetDate) setDate(targetDate);
-            setActiveHubTab('attendance');
+          onGoToAttendance={(subjectId, targetDate, targetPeriod) => {
+            setSelectedClassroom(classroomName);
+            if (subjectId) {
+              setAppSubjectId(String(subjectId));
+              setSelectedSubjectId(String(subjectId));
+            }
+            const params = new URLSearchParams();
+            if (classroomName) params.set('classroom', classroomName);
+            if (subjectId) params.set('subject_id', String(subjectId));
+            if (targetDate) params.set('date', targetDate);
+            if (targetPeriod) params.set('period', targetPeriod);
+            router.push(`/attendance?${params.toString()}`);
           }}
           onGoToStudents={() => setActiveHubTab('students')}
         />
@@ -510,11 +571,12 @@ export default function ClassroomHubView({ classroomName, onBack, currentUser }:
 
       {/* TAB 2: รายชื่อนักเรียนในห้องนี้ (Students Tab) */}
       {activeHubTab === 'students' && (
-        <div className="bg-white rounded-2xl border border-pink-100 overflow-hidden shadow-xs">
+        <div className="bg-white rounded-2xl border border-pink-100 shadow-xs relative z-20">
           <div className="p-5 border-b border-pink-50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-800">
               รายชื่อนักเรียนห้อง {classroomName} ทั้งหมด ({students.length} คน)
             </h3>
+            <ImportSpeedDial onSelectOption={handleSelectImportOption} />
           </div>
 
           <div className="overflow-x-auto">
@@ -601,6 +663,15 @@ export default function ClassroomHubView({ classroomName, onBack, currentUser }:
           )}
         </div>
       )}
+      {/* Multi-Modal Student Import Modal */}
+      <StudentImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={handleReloadStudents}
+        defaultClassroom={classroomName}
+        initialTab={importInitialTab}
+        autoTrigger={importAutoTrigger}
+      />
     </PageContainer>
   );
 }
