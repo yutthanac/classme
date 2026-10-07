@@ -147,21 +147,13 @@ export default function FlipDiskClock({ className = '' }: FlipDiskClockProps) {
   return (
     <div className={`flex flex-col items-center select-none ${className}`}>
       {/* Electromechanical Chassis */}
-      <div className="relative p-2 rounded-2xl bg-zinc-950/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-md ring-1 ring-black/40">
-        {/* Top subtle bar */}
-        <div className="flex items-center justify-between text-[7px] font-black tracking-widest text-zinc-500 uppercase px-1 mb-1">
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse" />
-            ELECTROMECHANICAL
-          </span>
-          <span className="text-zinc-400 font-mono text-[8px] font-semibold tracking-wider">LIVE</span>
-        </div>
+      <div className="relative">
 
         {/* Matrix Grid Container */}
-        <div className="flex items-center gap-1 sm:gap-1.5 bg-black/90 px-2 py-1.5 rounded-xl border border-zinc-900 shadow-inner">
+        <div className="flex items-center gap-1 sm:gap-1.5">
           {chars.map((char, charIdx) => {
             const pattern = DIGIT_PATTERNS[char] || DIGIT_PATTERNS['0'];
-            const cols = pattern[0].length;
+            const cols = pattern[0].length; 
             const rows = pattern.length;
             const isColon = char === ':';
             const isSeconds = charIdx >= 6;
@@ -183,8 +175,8 @@ export default function FlipDiskClock({ className = '' }: FlipDiskClockProps) {
                         key={`${r}-${c}`}
                         className={`w-1.5 h-1.5 sm:w-[7px] sm:h-[7px] rounded-full transition-all duration-300 ${
                           isActive
-                            ? 'bg-white shadow-[0_0_5px_rgba(255,255,255,0.9)] scale-100 ring-1 ring-zinc-200'
-                            : 'bg-zinc-900/90 opacity-20 scale-90 border border-zinc-800/40'
+                            ? 'bg-white scale-100'
+                            : 'opacity-0 scale-90'
                         }`}
                       />
                     );
