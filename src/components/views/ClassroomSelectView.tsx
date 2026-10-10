@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   GraduationCap,
   Layers,
@@ -17,11 +17,15 @@ import {
   ShieldCheck,
   Edit2,
   Clock,
+  CalendarDays,
+  Lock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button, Select, LiquidWaveSpinner, CardSkeleton } from '@/components/ui';
 import FlipDiskClock from '@/components/ui/FlipDiskClock';
 import ScheduleManagementModal from './ScheduleManagementModal';
+import { EventManager, type Event } from '@/components/ui/event-manager';
+import { cn } from '@/lib/utils';
 
 export const LEVEL_OPTIONS = [
   { value: 'มัธยมศึกษาปีที่ 1', label: 'มัธยมศึกษาปีที่ 1 (ม.1)' },
@@ -57,6 +61,63 @@ function isSamePerson(name1?: string | null, name2?: string | null): boolean {
   const n2 = normalizeName(name2);
   if (!n1 || !n2) return false;
   return n1 === n2 || n1.includes(n2) || n2.includes(n1);
+}
+
+const COLOR_PALETTE = ['pink', 'blue', 'purple', 'green', 'orange', 'red'];
+
+function mapSchedulesToEvents(schedules: any[], currentTeacherName?: string): Event[] {
+  const events: Event[] = [];
+  const today = new Date();
+
+  // Project over +/- 4 weeks
+  for (let weekOffset = -4; weekOffset <= 6; weekOffset++) {
+    const currentDay = today.getDay(); // 0 is Sun, 1 is Mon
+    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const monday = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + diffToMonday + weekOffset * 7
+    );
+
+    schedules.forEach((sc, idx) => {
+      const dayOffset = (Number(sc.day_of_week) || 1) - 1;
+      const targetDate = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + dayOffset);
+
+      const [startH, startM] = (sc.start_time || '08:30').split(':').map(Number);
+      const [endH, endM] = (sc.end_time || '09:20').split(':').map(Number);
+
+      const startTime = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), startH, startM || 0);
+      const endTime = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), endH, endM || 0);
+
+      const color = COLOR_PALETTE[Math.abs(Number(sc.subject_id || idx)) % COLOR_PALETTE.length];
+      const codeStr = sc.subject?.code ? `[${sc.subject.code}] ` : '';
+      const nameStr = sc.subject?.name || 'รายวิชา';
+      const teacherStr = sc.subject?.teacher_name || currentTeacherName || 'ครูผู้สอน';
+      const roomNumRaw = sc.room_number ? String(sc.room_number).trim() : '';
+      const roomNum = roomNumRaw ? (roomNumRaw.startsWith('ห้อง') ? roomNumRaw.replace(/^ห้อง\s*/, '') : roomNumRaw) : '';
+      const classroomName = sc.classroom ? String(sc.classroom).trim() : '';
+      const dateStr = `${targetDate.getFullYear()}-${targetDate.getMonth() + 1}-${targetDate.getDate()}`;
+
+      events.push({
+        id: `sched-${sc.id}-${dateStr}`,
+        title: `${codeStr}${nameStr}`,
+        description: `ห้องสอน: ${roomNum ? `ห้อง ${roomNum}` : 'ไม่ระบุห้อง'} ${classroomName ? `(ชั้นเรียน ${classroomName})` : ''}\nวิชา: ${codeStr}${nameStr}\nครูผู้สอน: ${teacherStr}\nเวลาเรียน: ${sc.start_time?.slice(0, 5)} - ${sc.end_time?.slice(0, 5)} น.`,
+        startTime,
+        endTime,
+        color,
+        category: roomNum ? `ห้อง ${roomNum}` : (classroomName ? `ห้อง ${classroomName}` : 'ห้องเรียน'),
+        room: roomNum,
+        classroom: classroomName,
+        tags: [
+          roomNum ? `ห้อง ${roomNum}` : '',
+          classroomName ? `ชั้น ${classroomName}` : '',
+          sc.subject?.code || 'ตารางสอน',
+        ].filter(Boolean),
+      });
+    });
+  }
+
+  return events;
 }
 
 // -------------------------------------------------------------
@@ -462,6 +523,7 @@ export default function ClassroomSelectView({
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(initialSubjectId || '');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [allSchedules, setAllSchedules] = useState<any[]>([]);
 
   // Modal State for adding/editing classroom
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -498,14 +560,18 @@ export default function ClassroomSelectView({
   const loadData = async () => {
     try {
       setLoading(true);
-      const [crRes, uRes, sbRes] = await Promise.all([
+      const [crRes, uRes, sbRes, scRes] = await Promise.all([
         api.getClassrooms(),
         api.getUsers().catch(() => ({ data: [] })),
         api.getSubjects().catch(() => ({ data: [] })),
+        api.getSchedules().catch(() => ({ data: [] })),
       ]);
 
       if (crRes.data) {
         setClassrooms(crRes.data);
+      }
+      if (scRes.data) {
+        setAllSchedules(scRes.data);
       }
       if (uRes.data) {
         const teacherUsers = uRes.data.filter((u: any) => u.role?.name === 'teacher');
@@ -643,6 +709,25 @@ export default function ClassroomSelectView({
 
   const activeSubject = subjects.find((s) => String(s.id) === String(selectedSubjectId));
 
+  const teacherSchedules = useMemo(() => {
+    if (isAdmin) return allSchedules;
+    const mySubjIds = new Set(subjects.map((s) => s.id));
+    return allSchedules.filter((sc) => {
+      if (sc.subject_id && mySubjIds.has(Number(sc.subject_id))) return true;
+      if (sc.subject && isSamePerson(sc.subject.teacher_name, currentUser?.name)) return true;
+      if (sc.subject && sc.subject.user_id === currentUser?.id) return true;
+      return false;
+    });
+  }, [allSchedules, subjects, isAdmin, currentUser]);
+
+  const teacherCalendarEvents = useMemo(() => {
+    return mapSchedulesToEvents(teacherSchedules, currentTeacherFullName);
+  }, [teacherSchedules, currentTeacherFullName]);
+
+  const todayClassesCount = useMemo(() => {
+    return teacherSchedules.filter((sc) => Number(sc.day_of_week) === currentDayOfWeek).length;
+  }, [teacherSchedules, currentDayOfWeek]);
+
   const filteredClassrooms = classrooms.filter((c) => {
     const matchesSearch =
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -766,8 +851,10 @@ export default function ClassroomSelectView({
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-6">
-        {/* Welcome Hero Banner with Polished Layout & FlipDiskClock */}
+      <main className="flex-1 w-full py-8 space-y-8">
+        {/* Top Section Container: Hero Banner, Filters & Classroom Cards */}
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 space-y-6">
+          {/* Welcome Hero Banner with Polished Layout & FlipDiskClock */}
         <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-pink-600 via-rose-500 to-pink-500 text-white p-6 sm:p-7 shadow-lg shadow-pink-200/50">
           {/* Subtle Ambient Decorative Glows */}
           <div className="absolute -top-12 -left-12 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
@@ -798,16 +885,20 @@ export default function ClassroomSelectView({
               <FlipDiskClock className="shrink-0 drop-shadow-md" />
 
               {/* Quick Stat Counter Cards */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-                <div className="bg-white/15 hover:bg-white/20 transition-colors backdrop-blur-md rounded-2xl p-3 text-center border border-white/25 min-w-[76px] sm:min-w-[84px] shadow-xs">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <div className="bg-white/15 hover:bg-white/20 transition-colors backdrop-blur-md rounded-2xl p-3 text-center border border-white/25 min-w-[70px] shadow-xs">
                   <span className="text-xl sm:text-2xl font-black block leading-none">{subjects.length}</span>
                   <span className="text-[10px] block text-pink-100 font-medium mt-1">วิชาที่สอน</span>
                 </div>
-                <div className="bg-white/15 hover:bg-white/20 transition-colors backdrop-blur-md rounded-2xl p-3 text-center border border-white/25 min-w-[76px] sm:min-w-[84px] shadow-xs">
+                <div className="bg-white/15 hover:bg-white/20 transition-colors backdrop-blur-md rounded-2xl p-3 text-center border border-white/25 min-w-[70px] shadow-xs">
                   <span className="text-xl sm:text-2xl font-black block leading-none">{filteredClassrooms.length}</span>
                   <span className="text-[10px] block text-pink-100 font-medium mt-1">ห้องเรียน</span>
                 </div>
-                <div className="bg-white/15 hover:bg-white/20 transition-colors backdrop-blur-md rounded-2xl p-3 text-center border border-white/25 min-w-[76px] sm:min-w-[84px] shadow-xs">
+                <div className="bg-white/15 hover:bg-white/20 transition-colors backdrop-blur-md rounded-2xl p-3 text-center border border-white/25 min-w-[70px] shadow-xs">
+                  <span className="text-xl sm:text-2xl font-black block leading-none">{todayClassesCount}</span>
+                  <span className="text-[10px] block text-pink-100 font-medium mt-1">คาบสอนวันนี้</span>
+                </div>
+                <div className="bg-white/15 hover:bg-white/20 transition-colors backdrop-blur-md rounded-2xl p-3 text-center border border-white/25 min-w-[70px] shadow-xs hidden sm:block">
                   <span className="text-xl sm:text-2xl font-black block leading-none">
                     {filteredClassrooms.reduce((acc, c) => acc + (c.students_count || 0), 0)}
                   </span>
@@ -816,6 +907,41 @@ export default function ClassroomSelectView({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Today's schedule reminder pill if any */}
+        {todayClassesCount > 0 && (
+          <div className="bg-sky-50/70 border border-sky-200/80 rounded-2xl p-3 px-4 flex items-center justify-between text-xs text-sky-800">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+              <span>
+                วันนี้คุณมีชั่วโมงสอนทั้งหมด <strong>{todayClassesCount} คาบ</strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                document.getElementById('teacher-schedule-section')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="font-bold text-sky-700 hover:text-sky-900 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>เลื่อนดูตารางสอน</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Section 1: ห้องเรียนที่รับผิดชอบ */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-pink-100/60 text-pink-600 flex items-center justify-center">
+            <Layers className="w-4 h-4" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            ห้องเรียนที่รับผิดชอบ
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-pink-50 text-pink-700 border border-pink-100">
+              {filteredClassrooms.length}
+            </span>
+          </h2>
         </div>
 
         {/* Filter and Action Bar */}
@@ -933,6 +1059,33 @@ export default function ClassroomSelectView({
             ))}
           </div>
         )}
+        </div>
+
+        {/* Section 2: ตารางสอนของฉัน (ยืดทะลุ container ออกไปเต็มหน้าจอ) */}
+        <section id="teacher-schedule-section" className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 space-y-4 pt-6 border-t border-pink-100/60">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-pink-100/60 text-pink-600 flex items-center justify-center">
+              <CalendarDays className="w-4 h-4" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800">ตารางสอนของฉัน</h2>
+          </div>
+
+          <div className="w-full bg-white p-3 sm:p-5 lg:p-6 rounded-3xl border border-pink-100 shadow-xs">
+            <EventManager
+              events={teacherCalendarEvents}
+              readOnly={true}
+              defaultView="week"
+              defaultWeekOrientation="horizontal"
+              categories={Array.from(
+                new Set(
+                  teacherSchedules
+                    .map((sc) => (sc.room_number ? (String(sc.room_number).startsWith('ห้อง') ? String(sc.room_number) : `ห้อง ${sc.room_number}`) : sc.classroom ? `ห้อง ${sc.classroom}` : 'ห้องเรียน'))
+                    .filter(Boolean),
+                ),
+              )}
+            />
+          </div>
+        </section>
       </main>
 
       {/* Classroom Modal Component */}

@@ -61,4 +61,5 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function 
   );
 });
 
+export { Select as NativeSelect };
 export default Select;

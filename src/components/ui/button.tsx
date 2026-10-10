@@ -1,81 +1,105 @@
-import React from 'react';
-import { cn } from '@/lib/cn';
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'accent' | 'soft';
-export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
+import { cn } from "@/lib/utils"
 
-const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    'bg-pink-600 text-white shadow-sm shadow-pink-600/20 hover:bg-pink-700 active:bg-pink-800',
-  accent:
-    'bg-sky-600 text-white shadow-sm shadow-sky-600/20 hover:bg-sky-700 active:bg-sky-800',
-  soft: 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 hover:border-sky-300',
-  secondary: 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900',
-  outline:
-    'bg-white text-slate-700 border border-slate-200 hover:border-pink-300 hover:text-pink-700 hover:bg-pink-50/50',
-  ghost: 'bg-transparent text-slate-400 hover:bg-slate-100 hover:text-slate-700',
-  danger:
-    'bg-rose-600 text-white shadow-sm shadow-rose-600/20 hover:bg-rose-700 active:bg-rose-800',
-};
+const buttonVariants = cva(
+  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-xl text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
+        primary: "bg-pink-600 text-white shadow-sm shadow-pink-600/20 hover:bg-pink-700 active:bg-pink-800",
+        accent: "bg-sky-600 text-white shadow-sm shadow-sky-600/20 hover:bg-sky-700 active:bg-sky-800",
+        soft: "bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 hover:border-sky-300",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm",
+        danger: "bg-rose-600 text-white shadow-sm shadow-rose-600/20 hover:bg-rose-700 active:bg-rose-800",
+        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-8.5 px-3 rounded-lg text-xs",
+        md: "h-10 px-4 text-sm rounded-xl font-medium",
+        lg: "h-11 rounded-xl px-8",
+        icon: "h-9 w-9 rounded-xl",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  },
+)
 
-const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'h-8.5 px-3.5 text-xs sm:text-sm gap-1.5 rounded-xl',
-  md: 'h-10 px-4 text-sm gap-2 rounded-xl font-medium',
-  lg: 'h-12 px-5 text-base gap-2.5 rounded-2xl font-semibold',
-  icon: 'h-9 w-9 rounded-xl',
-};
+export type ButtonVariant =
+  | "default"
+  | "primary"
+  | "accent"
+  | "soft"
+  | "destructive"
+  | "danger"
+  | "outline"
+  | "secondary"
+  | "ghost"
+  | "link"
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  loading?: boolean;
-  /** Icon rendered before children; replaced by a spinner while loading. */
-  icon?: React.ReactNode;
-  fullWidth?: boolean;
+export type ButtonSize = "default" | "sm" | "md" | "lg" | "icon"
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean
+  loading?: boolean
+  icon?: React.ReactNode
+  fullWidth?: boolean
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  {
-    variant = 'primary',
-    size = 'md',
-    loading = false,
-    icon,
-    fullWidth,
-    className,
-    children,
-    disabled,
-    ...props
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      loading = false,
+      icon,
+      fullWidth = false,
+      children,
+      disabled,
+      ...props
+    },
+    ref,
+  ) => {
+    const Comp = asChild ? Slot : "button"
+    return (
+      <Comp
+        className={cn(
+          buttonVariants({ variant, size, className }),
+          fullWidth && "w-full",
+        )}
+        ref={ref}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
+        {...props}
+      >
+        {loading ? (
+          <span
+            aria-hidden
+            className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"
+          />
+        ) : (
+          icon && <span className={children ? "mr-1.5 inline-flex" : "inline-flex"}>{icon}</span>
+        )}
+        {children}
+      </Comp>
+    )
   },
-  ref
-) {
-  return (
-    <button
-      ref={ref}
-      disabled={disabled || loading}
-      aria-busy={loading || undefined}
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold select-none',
-        'transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 focus-visible:ring-offset-2',
-        'active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50',
-        variantClasses[variant],
-        sizeClasses[size],
-        fullWidth && 'w-full',
-        className
-      )}
-      {...props}
-    >
-      {loading ? (
-        <span
-          aria-hidden
-          className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
-        />
-      ) : (
-        icon
-      )}
-      {children}
-    </button>
-  );
-});
+)
+Button.displayName = "Button"
 
-export default Button;
+export { Button, buttonVariants }
+export default Button

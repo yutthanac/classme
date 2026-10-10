@@ -19,20 +19,19 @@ import {
   ArrowRight,
   Layers,
 } from 'lucide-react';
-import { api } from '@/lib/api';
 import { Button, Select } from '@/components/ui';
+import {
+  type StudentDraft,
+  scanRosterWithAi,
+  batchImportStudents,
+  parseTextToStudents,
+  parseSpreadsheetBuffer,
+  fetchGoogleSheetByUrl,
+  compressImageForUpload,
+  downloadSampleTemplate,
+} from '@/action/action';
 
-export interface StudentDraft {
-  id: string | number;
-  student_number: number;
-  student_code: string;
-  title: string;
-  first_name: string;
-  last_name: string;
-  gender: 'male' | 'female';
-  guardian_name?: string;
-  guardian_phone?: string;
-}
+export type { StudentDraft };
 
 interface StudentImportModalProps {
   isOpen: boolean;
@@ -45,199 +44,6 @@ interface StudentImportModalProps {
 }
 
 type ImportTab = 'file' | 'camera' | 'paste';
-
-// Helper: Parse Thai full names into components
-function parseThaiName(fullName: string) {
-  let cleaned = fullName.trim().replace(/\s+/g, ' ');
-  let title = 'นาย';
-  let gender: 'male' | 'female' = 'male';
-
-  const prefixes = [
-    { prefix: 'เด็กชาย', title: 'ด.ช.', gender: 'male' },
-    { prefix: 'ด.ช.', title: 'ด.ช.', gender: 'male' },
-    { prefix: 'เด็กหญิง', title: 'ด.ญ.', gender: 'female' },
-    { prefix: 'ด.ญ.', title: 'ด.ญ.', gender: 'female' },
-    { prefix: 'นางสาว', title: 'นางสาว', gender: 'female' },
-    { prefix: 'น.ส.', title: 'นางสาว', gender: 'female' },
-    { prefix: 'นาง', title: 'นาง', gender: 'female' },
-    { prefix: 'นาย', title: 'นาย', gender: 'male' },
-  ];
-
-  for (const p of prefixes) {
-    if (cleaned.startsWith(p.prefix)) {
-      title = p.title;
-      gender = p.gender as 'male' | 'female';
-      cleaned = cleaned.substring(p.prefix.length).trim();
-      break;
-    }
-  }
-
-  const parts = cleaned.split(' ');
-  const firstName = parts[0] || '';
-  const lastName = parts.slice(1).join(' ') || '';
-
-  return { title, firstName, lastName, gender };
-}
-
-// Helper: Parse CSV/TSV table text
-function parseTextToStudents(text: string): StudentDraft[] {
-  const lines = text.split(/\r\n|\n|\r/).filter((l) => l.trim().length > 0);
-  if (lines.length === 0) return [];
-
-  const rows = lines.map((line) => {
-    if (line.includes('\t')) {
-      return line.split('\t').map((c) => c.trim().replace(/^["']|["']$/g, ''));
-    }
-    const regex = /(?:^|,)(?:"([^"]*)"|([^,]*))/g;
-    const cols: string[] = [];
-    let match;
-    while ((match = regex.exec(line)) !== null) {
-      cols.push((match[1] !== undefined ? match[1] : match[2] || '').trim());
-    }
-    return cols;
-  });
-
-  let startIndex = 0;
-  const firstRow = rows[0] || [];
-  const isHeader = firstRow.some((col) =>
-    ['เลขที่', 'รหัส', 'ชื่อ', 'นามสกุล', 'เพศ', 'เบอร์', 'student_number', 'student_code', 'name'].some((k) =>
-      col.toLowerCase().includes(k)
-    )
-  );
-  if (isHeader) {
-    startIndex = 1;
-  }
-
-  const results: StudentDraft[] = [];
-  for (let i = startIndex; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row || row.length === 0 || row.every((c) => !c)) continue;
-
-    const studentNumber = parseInt(row[0], 10) || results.length + 1;
-    let studentCode = row[1] || `100${String(studentNumber).padStart(2, '0')}`;
-    let title = 'นาย';
-    let firstName = '';
-    let lastName = '';
-    let gender: 'male' | 'female' = 'male';
-    let guardianPhone = '';
-
-    if (row.length >= 5) {
-      title = row[2] || 'นาย';
-      firstName = row[3] || '';
-      lastName = row[4] || '';
-      gender = row[5] === 'หญิง' || row[5] === 'female' ? 'female' : 'male';
-      guardianPhone = row[6] || '';
-    } else if (row.length >= 3) {
-      const parsed = parseThaiName(row[2]);
-      title = parsed.title;
-      firstName = parsed.firstName;
-      lastName = parsed.lastName;
-      gender = parsed.gender;
-      guardianPhone = row[3] || '';
-    } else if (row.length === 2) {
-      const parsed = parseThaiName(row[1]);
-      title = parsed.title;
-      firstName = parsed.firstName;
-      lastName = parsed.lastName;
-      gender = parsed.gender;
-    }
-
-    if (!firstName && row[2]) {
-      const parsed = parseThaiName(row[2]);
-      title = parsed.title;
-      firstName = parsed.firstName;
-      lastName = parsed.lastName;
-      gender = parsed.gender;
-    }
-
-    // Auto-detect gender from title if not explicitly female
-    if (['นางสาว', 'ด.ญ.', 'เด็กหญิง', 'นาง'].includes(title)) {
-      gender = 'female';
-    }
-
-    results.push({
-      id: `draft-${Date.now()}-${i}`,
-      student_number: studentNumber,
-      student_code: studentCode,
-      title: title || 'นาย',
-      first_name: firstName,
-      last_name: lastName,
-      gender,
-      guardian_phone: guardianPhone,
-    });
-  }
-
-  return results;
-}
-
-// Client-side Image compression: reduces 5-10MB photo to ~300KB before upload
-async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82): Promise<File> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      let { width, height } = img;
-      if (width > maxDim || height > maxDim) {
-        if (width > height) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(file);
-        return;
-      }
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            resolve(file);
-            return;
-          }
-          const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
-            type: 'image/jpeg',
-            lastModified: Date.now(),
-          });
-          resolve(compressed);
-        },
-        'image/jpeg',
-        quality
-      );
-    };
-    img.onerror = () => resolve(file);
-    img.src = url;
-  });
-}
-
-// Client-side CSV Template generator with UTF-8 BOM
-function downloadSampleTemplate() {
-  const header = 'เลขที่,รหัสนักเรียน,คำนำหน้า,ชื่อ,นามสกุล,เพศ,เบอร์ผู้ปกครอง\n';
-  const sampleRows = [
-    '1,10001,นาย,กิตติศักดิ์,มีเจริญ,ชาย,0812345678',
-    '2,10002,นาย,ชานนท์,สุขเกษม,ชาย,0823456789',
-    '3,10003,นางสาว,ณัฐธิดา,วงศ์สวัสดิ์,หญิง,0834567890',
-    '4,10004,นางสาว,ทิพวรรณ,บุญส่ง,หญิง,0845678901',
-    '5,10005,นาย,ธนภัทร,จันทร์เพ็ญ,ชาย,0856789012',
-  ].join('\n');
-
-  const blob = new Blob(['\uFEFF' + header + sampleRows], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'แม่แบบรายชื่อนักเรียน_ClassMe.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 export default function StudentImportModal({
   isOpen,
@@ -262,6 +68,10 @@ export default function StudentImportModal({
   const [studentsList, setStudentsList] = useState<StudentDraft[]>([]);
   const [savingBatch, setSavingBatch] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // File loading state
+  const [readingFile, setReadingFile] = useState(false);
+  const [readingFileName, setReadingFileName] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -294,24 +104,38 @@ export default function StudentImportModal({
   // Handle file drop / select
   const handleProcessFile = (file: File) => {
     setErrorMsg(null);
+
+    // If user dropped or selected an image file in the file tab, automatically route to AI image scan!
+    if (file.type.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|webp|heic)$/i)) {
+      setActiveTab('camera');
+      handlePhotoUploadAndScan(file);
+      return;
+    }
+
+    setReadingFile(true);
+    setReadingFileName(file.name);
+
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        const text = e.target?.result as string;
-        const parsed = parseTextToStudents(text);
+        const buffer = e.target?.result as ArrayBuffer;
+        const parsed = await parseSpreadsheetBuffer(buffer, file.name);
         if (parsed.length === 0) {
-          setErrorMsg('ไม่พบข้อมูลรายชื่อในไฟล์ กรุณาตรวจสอบหัวคอลัมน์หรือใช้ไฟล์ตัวอย่าง');
+          setErrorMsg('ไม่พบข้อมูลรายชื่อในไฟล์ กรุณาตรวจสอบหัวคอลัมน์ หรือใช้ไฟล์แม่แบบ Excel/CSV');
           return;
         }
         setStudentsList(parsed);
       } catch (err: any) {
         setErrorMsg('ไม่สามารถอ่านไฟล์ได้: ' + err.message);
+      } finally {
+        setReadingFile(false);
       }
     };
     reader.onerror = () => {
       setErrorMsg('เกิดข้อผิดพลาดในการเปิดไฟล์');
+      setReadingFile(false);
     };
-    reader.readAsText(file, 'utf-8');
+    reader.readAsArrayBuffer(file);
   };
 
   // Handle Photo OCR
@@ -330,39 +154,59 @@ export default function StudentImportModal({
       formData.append('image', compressed);
       if (targetClassroom) formData.append('classroom', targetClassroom);
 
-      const res = await api.aiScanRoster(formData);
+      const customKey = typeof window !== 'undefined' ? localStorage.getItem('classme_gemini_api_key') : null;
+      if (customKey) formData.append('api_key', customKey);
+
+      const res = await scanRosterWithAi(formData);
       if (res.status === 'success' && res.data?.students?.length > 0) {
         const mapped: StudentDraft[] = res.data.students.map((st: any, idx: number) => ({
           id: `ai-${Date.now()}-${idx}`,
           student_number: st.student_number || idx + 1,
           student_code: st.student_code || `100${String(idx + 1).padStart(2, '0')}`,
           title: st.title || 'นาย',
-          first_name: st.first_name || '',
+          first_name: st.first_name || st.name || '',
           last_name: st.last_name || '',
-          gender: st.gender || 'male',
+          gender: st.gender === 'female' ? 'female' : 'male',
           guardian_phone: st.guardian_phone || '',
         }));
         setStudentsList(mapped);
       } else {
-        setErrorMsg('AI ไม่พบรายชื่อนักเรียนในภาพนี้ กรุณาถ่ายให้ชัดเจนขึ้นหรือลองวิธีอื่น');
+        setErrorMsg('AI ตรวจสอบภาพถ่ายแล้ว ไม่พบรายชื่อนักเรียนในภาพนี้ กรุณาถ่ายภาพให้ชัดเจนขึ้นหรือลองอัปโหลดด้วยไฟล์ CSV/Excel');
       }
     } catch (err: any) {
-      setErrorMsg('เกิดข้อผิดพลาดในการสแกนภาพ: ' + err.message);
+      setErrorMsg('เกิดข้อผิดพลาดในการสแกนภาพด้วย AI: ' + (err.message || 'โปรดตรวจสอบการเชื่อมต่อ'));
     } finally {
       setScanningPhoto(false);
     }
   };
 
-  // Handle Clipboard text paste
-  const handleParsePastedText = () => {
+  // Handle Clipboard text paste or Google Sheets URL
+  const handleParsePastedText = async () => {
     setErrorMsg(null);
-    if (!pastedText.trim()) {
-      setErrorMsg('กรุณาวางข้อความก่อนกดแปลงข้อมูล');
+    const trimmed = pastedText.trim();
+    if (!trimmed) {
+      setErrorMsg('กรุณาวางข้อความหรือลิงก์ Google Sheets ก่อนกดแปลงข้อมูล');
       return;
     }
-    const parsed = parseTextToStudents(pastedText);
+
+    // Check if user pasted a Google Sheets URL
+    if (trimmed.includes('docs.google.com/spreadsheets/d/')) {
+      setReadingFile(true);
+      setReadingFileName('Google Sheets');
+      try {
+        const parsed = await fetchGoogleSheetByUrl(trimmed);
+        setStudentsList(parsed);
+      } catch (err: any) {
+        setErrorMsg('ไม่สามารถนำเข้าจากลิงก์ Google Sheets ได้: ' + err.message);
+      } finally {
+        setReadingFile(false);
+      }
+      return;
+    }
+
+    const parsed = parseTextToStudents(trimmed);
     if (parsed.length === 0) {
-      setErrorMsg('ไม่สามารถแยกข้อมูลได้ กรุณาก๊อปปี้จากตาราง Excel หรือ Word โดยตรง');
+      setErrorMsg('ไม่สามารถแยกข้อมูลได้ กรุณาก๊อปปี้จากตาราง Excel หรือ Google Sheets โดยตรง');
       return;
     }
     setStudentsList(parsed);
@@ -433,7 +277,7 @@ export default function StudentImportModal({
         })),
       };
 
-      const res = await api.batchImportStudents(payload);
+      const res = await batchImportStudents(payload);
       if (res.status === 'success') {
         onSuccess();
         onClose();
@@ -569,55 +413,76 @@ export default function StudentImportModal({
 
               {/* TAB 1: FILE DRAG & DROP */}
               {activeTab === 'file' && (
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(true);
-                  }}
-                  onDragLeave={() => setIsDragOver(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(false);
-                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      handleProcessFile(e.dataTransfer.files[0]);
-                    }
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-3xl p-10 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${
-                    isDragOver
-                      ? 'border-pink-500 bg-pink-50/50 scale-[0.99]'
-                      : 'border-slate-200 hover:border-pink-400 bg-slate-50/40 hover:bg-pink-50/20'
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv,.txt"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleProcessFile(e.target.files[0]);
+                readingFile ? (
+                  <div className="border-2 border-pink-300 bg-pink-50/70 rounded-3xl p-12 text-center flex flex-col items-center justify-center gap-4 animate-in fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-pink-500 text-white flex items-center justify-center shadow-lg shadow-pink-200">
+                      <RefreshCw className="w-8 h-8 animate-spin" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <h3 className="text-base font-black text-slate-800">
+                        กำลังโหลดไฟล์และประมวลผลข้อมูล...
+                      </h3>
+                      {readingFileName && (
+                        <p className="text-xs text-pink-700 font-bold bg-pink-100/80 px-3 py-1 rounded-full inline-block">
+                          📄 {readingFileName}
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-500 font-medium">
+                        กรุณารอสักครู่ ระบบกำลังอ่านและสกัดรายชื่อนักเรียน เลขที่ และรหัสประจำตัว
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(true);
+                    }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        handleProcessFile(e.dataTransfer.files[0]);
                       }
                     }}
-                  />
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-3xl p-10 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${
+                      isDragOver
+                        ? 'border-pink-500 bg-pink-50/50 scale-[0.99]'
+                        : 'border-slate-200 hover:border-pink-400 bg-slate-50/40 hover:bg-pink-50/20'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls,.csv,.txt,.tsv,image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleProcessFile(e.target.files[0]);
+                        }
+                      }}
+                    />
 
-                  <div className="w-14 h-14 rounded-2xl bg-pink-100 text-pink-600 flex items-center justify-center shadow-xs">
-                    <UploadCloud className="w-7 h-7" />
+                    <div className="w-14 h-14 rounded-2xl bg-pink-100 text-pink-600 flex items-center justify-center shadow-xs">
+                      <UploadCloud className="w-7 h-7" />
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-black text-slate-800">
+                        ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1 font-medium">
+                        รองรับ <span className="font-bold text-pink-600">Excel (.xlsx, .xls)</span>, <span className="font-bold text-pink-600">Google Sheets</span>, <span className="font-bold text-pink-600">.CSV</span>, หรือรูปถ่ายตาราง
+                      </p>
+                    </div>
+
+                    <span className="text-[11px] font-semibold text-emerald-600 mt-2 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-200">
+                      ✨ รองรับไฟล์ .xlsx จาก Google Sheets และ Excel ได้โดยตรง ไม่ต้องแปลงไฟล์
+                    </span>
                   </div>
-
-                  <div>
-                    <h3 className="text-sm font-black text-slate-800">
-                      ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1 font-medium">
-                      รองรับไฟล์ <span className="font-bold text-pink-600">.CSV</span> หรือ text ที่ส่งออกจาก Excel / Google Sheets
-                    </p>
-                  </div>
-
-                  <span className="text-[11px] font-semibold text-slate-400 mt-2 px-3 py-1 bg-white rounded-full border border-slate-200">
-                    💡 หากมีไฟล์ .xlsx ให้เปิดใน Excel แล้วกด "Save As" เลือก .CSV เพื่อความเร็วสูงสุด
-                  </span>
-                </div>
+                )
               )}
 
               {/* TAB 2: AI CAMERA / PHOTO SCAN */}
@@ -656,7 +521,7 @@ export default function StudentImportModal({
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept="image/jpeg,image/png,image/webp,image/heic"
                         className="hidden"
                         onChange={(e) => {
                           if (e.target.files && e.target.files[0]) {
@@ -673,14 +538,18 @@ export default function StudentImportModal({
                   </div>
 
                   {scanningPhoto && (
-                    <div className="p-6 bg-pink-50 border border-pink-200 rounded-3xl text-center space-y-3 animate-in fade-in">
-                      <RefreshCw className="w-6 h-6 text-pink-600 animate-spin mx-auto" />
-                      <p className="text-xs font-bold text-pink-900">
-                        กำลังบีบอัดภาพและให้ AI ตรวจจับรายชื่อนักเรียน...
-                      </p>
-                      <p className="text-[11px] text-pink-600">
-                        เทคนิคประหยัดแรม: ย่อขนาดรูปผ่าน Web Canvas อัตโนมัติ เครื่องไม่กระตุกแน่นอน
-                      </p>
+                    <div className="p-8 bg-pink-50 border-2 border-pink-300 rounded-3xl text-center space-y-3 animate-in fade-in shadow-md shadow-pink-100">
+                      <div className="w-14 h-14 rounded-2xl bg-pink-500 text-white flex items-center justify-center mx-auto shadow-md shadow-pink-200">
+                        <RefreshCw className="w-7 h-7 animate-spin" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-black text-pink-950">
+                          กำลังส่งให้ AI (Gemini Vision) สแกนตรวจจับรายชื่อนักเรียนจริงจากภาพ...
+                        </h4>
+                        <p className="text-xs text-pink-700 font-medium">
+                          ระบบกำลังวิเคราะห์ข้อความและตารางรายชื่อในภาพจริง กรุณารอสักครู่ (ประมาณ 3-6 วินาที)
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -690,7 +559,7 @@ export default function StudentImportModal({
               {activeTab === 'paste' && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-700">วางข้อความตารางที่นี่ (Ctrl+V):</span>
+                    <span className="font-bold text-slate-700">วางข้อความตาราง หรือวางลิงก์ Google Sheets (Ctrl+V):</span>
                     <button
                       type="button"
                       onClick={() => {
@@ -712,7 +581,7 @@ export default function StudentImportModal({
                     rows={6}
                     value={pastedText}
                     onChange={(e) => setPastedText(e.target.value)}
-                    placeholder={`ก๊อปปี้คอลัมน์จาก Excel หรือ Google Sheets แล้วกดวางได้เลย เช่น:\n1\t10001\tนายกิตติศักดิ์ มีเจริญ\t0812345678\n2\t10002\tนางสาวณัฐธิดา วงศ์สวัสดิ์\t0823456789`}
+                    placeholder={`ก๊อปปี้คอลัมน์จาก Excel หรือ Google Sheets แล้วกดวางได้เลย หรือวางลิงก์ Google Sheets เช่น:\nhttps://docs.google.com/spreadsheets/d/...\n\nตัวอย่างข้อความตาราง:\n1\t10001\tนายกิตติศักดิ์ มีเจริญ\t0812345678\n2\t10002\tนางสาวณัฐธิดา วงศ์สวัสดิ์\t0823456789`}
                     className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-400 placeholder:text-slate-400"
                   />
 
@@ -723,7 +592,7 @@ export default function StudentImportModal({
                       size="sm"
                       icon={<ArrowRight className="w-3.5 h-3.5" />}
                     >
-                      แปลงข้อความเป็นรายชื่อนักเรียน
+                      แปลงข้อมูลเป็นรายชื่อนักเรียน
                     </Button>
                   </div>
                 </div>

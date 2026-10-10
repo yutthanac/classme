@@ -1,6 +1,7 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 export const STORAGE_BASE = process.env.NEXT_PUBLIC_STORAGE_URL || 'http://127.0.0.1:8000';
 export { getAvatarUrl, uploadAvatarFile, AVATAR_PRESETS } from './avatar';
+import type { Student, StudentProfileData } from '@/types/student';
 
 export function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
@@ -175,15 +176,15 @@ export const api = {
     const q = new URLSearchParams();
     if (params?.classroom) q.append('classroom', params.classroom);
     if (params?.search) q.append('search', params.search);
-    return fetchApi<{ status: string; data: any[] }>(`/students?${q.toString()}`);
+    return fetchApi<{ status: string; data: Student[] }>(`/students?${q.toString()}`);
   },
-  getStudent: (id: number | string) => fetchApi<{ status: string; data: any }>(`/students/${id}`),
-  createStudent: (data: any) => fetchApi<{ status: string; data: any }>('/students', {
+  getStudent: (id: number | string) => fetchApi<{ status: string; data: StudentProfileData }>(`/students/${id}`),
+  createStudent: (data: Partial<Student>) => fetchApi<{ status: string; data: Student; message?: string }>('/students', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   }),
-  updateStudent: (id: number | string, data: any) => fetchApi<{ status: string; data: any }>(`/students/${id}`, {
+  updateStudent: (id: number | string, data: Partial<Student>) => fetchApi<{ status: string; data: Student; message?: string }>(`/students/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

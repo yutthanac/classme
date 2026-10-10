@@ -874,7 +874,7 @@ export default function ScheduleManagementModal({
                                     title="คลิกเพื่อแก้ไขเลขห้องสอน"
                                   >
                                     <MapPin className="w-2.5 h-2.5 shrink-0 text-pink-600" />
-                                    <span className="truncate">{sc.room_number || `ห้อง ${sc.classroom || currentClassroom}`}</span>
+                                    <span className="truncate">{sc.room_number ? `ห้อง ${sc.room_number}` : (sc.classroom || currentClassroom ? `ห้อง ${sc.classroom || currentClassroom}` : 'ห้องเรียน')}</span>
                                   </div>
                                 </div>
 
@@ -883,19 +883,18 @@ export default function ScheduleManagementModal({
                                   onMouseDown={(e) => e.stopPropagation()}
                                   className="flex items-center justify-between gap-1 pt-0.5 shrink-0"
                                 >
-                                  {/* Level badge */}
+                                  {/* Classroom badge */}
                                   {(() => {
-                                    const matchedCr = classrooms.find((c) => c.name === (sc.classroom || currentClassroom));
-                                    const levelLabel = matchedCr?.level || matchedCr?.name || sc.classroom || currentClassroom;
-                                    return (
+                                    const classLabel = sc.classroom || currentClassroom || '';
+                                    return classLabel ? (
                                       <div
                                         className="flex items-center gap-1 px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-200/80 rounded-md text-[9px] font-black truncate shadow-2xs"
-                                        title={`ชั้นเรียน: ${levelLabel} (${sc.classroom || currentClassroom})`}
+                                        title={`ชั้นเรียน: ${classLabel}`}
                                       >
                                         <GraduationCap className="w-2.5 h-2.5 shrink-0 text-sky-600" />
-                                        <span className="truncate">{levelLabel}</span>
+                                        <span className="truncate">{classLabel}</span>
                                       </div>
-                                    );
+                                    ) : null;
                                   })()}
 
                                   {/* Action Buttons: Edit Room & Change Classroom */}
